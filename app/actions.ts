@@ -3,6 +3,23 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { writeRawNote, appendTodo, writePersonFile } from "@/lib/vault";
+import { updateTodoInFile } from "@/lib/todos";
+
+type TodoState = "todo" | "progress" | "done";
+
+interface ToggleTodoParams {
+  origin: string;
+  desc: string;
+  currentState: TodoState;
+  nextState: TodoState;
+}
+
+export async function toggleTodoState(params: ToggleTodoParams): Promise<void> {
+  const { origin, desc, nextState } = params;
+  await updateTodoInFile({ origin, desc, nextState });
+  revalidatePath("/");
+  revalidatePath("/pendientes");
+}
 
 export async function createNote(formData: FormData): Promise<void> {
   const body = String(formData.get("body") || "").trim();

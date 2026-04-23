@@ -1,5 +1,6 @@
 import { readProcessedNotes, readTodos, readPeople, readRawNotes } from "@/lib/vault";
 import { Section, StatCard, Tag, relTime, deadlineStatus } from "@/components/atoms";
+import { TodoCheckbox } from "@/components/todo-checkbox";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -146,9 +147,11 @@ export default async function HomePage() {
                   }}
                 >
                   <div style={{ paddingTop: 2 }}>
-                    <div className={`cb${t.state === "progress" ? " progress" : ""}`}>
-                      <span className="cb-mark">{t.state === "progress" ? "·" : ""}</span>
-                    </div>
+                    <TodoCheckbox
+                      origin={t.origin}
+                      desc={t.desc}
+                      currentState={t.state}
+                    />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13.5, color: "var(--ink)", lineHeight: 1.4 }}>
