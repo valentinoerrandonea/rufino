@@ -2,13 +2,15 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useTheme } from "./theme-provider";
+import { TweaksPanel } from "./tweaks-panel";
 
 export function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { theme, toggle } = useTheme();
+  const [tweaksOpen, setTweaksOpen] = useState(false);
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -147,6 +149,29 @@ export function Shell({ children }: { children: ReactNode }) {
           <span>{theme === "light" ? "☾" : "☀"}</span>
           <span>{theme === "light" ? "Tema oscuro" : "Tema claro"}</span>
         </button>
+
+        <button
+          onClick={() => setTweaksOpen((v) => !v)}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "8px 10px",
+            borderRadius: 6,
+            background: tweaksOpen ? "var(--surface)" : "transparent",
+            border: tweaksOpen ? "1px solid var(--hair)" : "1px solid transparent",
+            color: tweaksOpen ? "var(--ink)" : "var(--ink-2)",
+            fontSize: 12,
+            cursor: "pointer",
+          }}
+          onMouseEnter={(e) => { if (!tweaksOpen) e.currentTarget.style.background = "var(--surface-2)"; }}
+          onMouseLeave={(e) => { if (!tweaksOpen) e.currentTarget.style.background = "transparent"; }}
+        >
+          <span>⚙</span>
+          <span>Ajustes</span>
+        </button>
+
+        <TweaksPanel open={tweaksOpen} onClose={() => setTweaksOpen(false)} />
       </aside>
 
       <main style={{ overflow: "auto", position: "relative" }}>{children}</main>
