@@ -38,7 +38,7 @@ async function readNoteFiles(dir: string): Promise<NoteFile[]> {
     results.push({
       filename: e.name,
       title,
-      date: data.updated || data.created || "",
+      date: String(data.updated || data.created || ""),
       content,
       tags,
     });
@@ -67,7 +67,7 @@ async function readSessionsForProject(projectId: string): Promise<NoteFile[]> {
     results.push({
       filename: e.name,
       title,
-      date: data.created || "",
+      date: String(data.created || ""),
       content,
       tags,
     });
@@ -143,7 +143,14 @@ export default async function ProyectoMemoryPage({
 
   const overviewRaw = await readFileSafe(path.join(projectDir, "overview.md"));
   const overviewParsed = overviewRaw ? matter(overviewRaw) : null;
-  const overviewMeta = overviewParsed?.data as { created?: string; updated?: string; tags?: string[] } | undefined;
+  const rawMeta = overviewParsed?.data as Record<string, unknown> | undefined;
+  const overviewMeta = rawMeta
+    ? {
+        created: rawMeta.created != null ? String(rawMeta.created) : undefined,
+        updated: rawMeta.updated != null ? String(rawMeta.updated) : undefined,
+        tags: Array.isArray(rawMeta.tags) ? (rawMeta.tags as string[]) : undefined,
+      }
+    : undefined;
   const overviewContent = overviewParsed?.content ?? "";
 
   const titleMatch = overviewContent.match(/^#\s+(.+)$/m);

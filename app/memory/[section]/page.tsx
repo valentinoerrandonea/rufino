@@ -43,7 +43,7 @@ async function readProjectCards(): Promise<ProjectCard[]> {
       const { data, content } = matter(raw);
       const titleMatch = content.match(/^#\s+(.+)$/m);
       if (titleMatch) title = titleMatch[1].trim();
-      updated = data.updated || data.created || "";
+      updated = String(data.updated || data.created || "");
       // first non-heading, non-empty paragraph
       const lines = content.split("\n");
       for (const line of lines) {
@@ -172,7 +172,12 @@ export default async function MemoryPage({
     const raw = await fs.readFile(filepath, "utf-8");
     const parsed = matter(raw);
     content = parsed.content;
-    frontmatter = parsed.data as typeof frontmatter;
+    const data = parsed.data as Record<string, unknown>;
+    frontmatter = {
+      created: data.created != null ? String(data.created) : undefined,
+      updated: data.updated != null ? String(data.updated) : undefined,
+      tags: Array.isArray(data.tags) ? (data.tags as string[]) : undefined,
+    };
   } catch {
     // file not found — show empty state
   }
