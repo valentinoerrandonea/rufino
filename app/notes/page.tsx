@@ -2,13 +2,26 @@ import { readProcessedNotes, readRawNotes } from "@/lib/vault";
 import { isProcessorRunning } from "@/lib/processor";
 import { relTime } from "@/components/atoms";
 import { ProcessingPoller } from "@/components/processing-poller";
-import Link from "next/link";
+import { NotesFilters } from "@/components/notes-filters";
 
 export const dynamic = "force-dynamic";
 
 export default async function NotesPage() {
   const [notes, rawNotes] = await Promise.all([readProcessedNotes(), readRawNotes()]);
   const processing = isProcessorRunning();
+
+  // Strip heavy body fields before passing to the client component
+  const lite = notes.map((n) => ({
+    id: n.id,
+    title: n.title,
+    project: n.project,
+    arista: n.arista,
+    type: n.type,
+    tags: n.tags,
+    excerpt: n.excerpt,
+    created: n.created,
+    processed: n.processed,
+  }));
 
   return (
     <div style={{ padding: "48px 56px 80px", maxWidth: 960, margin: "0 auto" }}>
@@ -29,19 +42,39 @@ export default async function NotesPage() {
 
       {rawNotes.length > 0 && (
         <section style={{ marginBottom: 32 }}>
-          <h2 className="serif" style={{ fontSize: 15, fontWeight: 500, marginBottom: 10 }}>
+          <h2
+            className="serif"
+            style={{
+              fontSize: 16,
+              fontWeight: 500,
+              marginBottom: 10,
+              display: "flex",
+              alignItems: "baseline",
+              gap: 10,
+            }}
+          >
             Inbox (sin procesar)
+            <span
+              style={{
+                fontSize: 11,
+                color: "var(--ink-3)",
+                fontFamily: "var(--font-sans)",
+                fontWeight: 400,
+              }}
+            >
+              {rawNotes.length}
+            </span>
             {processing && (
               <span
                 style={{
                   fontSize: 11,
                   color: "var(--accent)",
-                  marginLeft: 10,
+                  marginLeft: 4,
                   fontFamily: "var(--font-sans)",
                   fontWeight: 400,
                 }}
               >
-                ⏳ en curso · esto puede tardar 1-2 min por nota
+                ⏳ en curso · 1-2 min por nota
               </span>
             )}
           </h2>
@@ -84,69 +117,16 @@ export default async function NotesPage() {
         </section>
       )}
 
-      <section>
-        <h2 className="serif" style={{ fontSize: 15, fontWeight: 500, marginBottom: 10 }}>
-          Procesadas
-        </h2>
-        {notes.length === 0 ? (
-          <div
-            className="card-soft"
-            style={{ padding: 24, textAlign: "center", color: "var(--ink-2)" }}
-          >
-            Aún no hay notas procesadas.
-          </div>
-        ) : (
-          <div className="card" style={{ overflow: "hidden" }}>
-            {notes.map((n, i) => (
-              <Link
-                key={n.id}
-                href={`/notes/${n.id}`}
-                className="hoverable"
-                style={{
-                  padding: "14px 18px",
-                  borderBottom: i < notes.length - 1 ? "1px solid var(--hair-soft)" : "none",
-                  display: "grid",
-                  gridTemplateColumns: "1fr auto",
-                  gap: 16,
-                  textDecoration: "none",
-                  color: "inherit",
-                }}
-              >
-                <div style={{ minWidth: 0 }}>
-                  <div
-                    style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 4 }}
-                  >
-                    <h3 className="serif" style={{ fontSize: 15, fontWeight: 500 }}>
-                      {n.title}
-                    </h3>
-                    <span style={{ fontSize: 11, color: "var(--accent)" }}>
-                      {n.project}
-                      {n.arista ? ` · ${n.arista}` : ""}
-                    </span>
-                  </div>
-                  <p
-                    style={{
-                      fontSize: 12.5,
-                      color: "var(--ink-2)",
-                      lineHeight: 1.5,
-                      margin: 0,
-                      display: "-webkit-box",
-                      WebkitLineClamp: 1,
-                      WebkitBoxOrient: "vertical",
-                      overflow: "hidden",
-                    }}
-                  >
-                    {n.excerpt}
-                  </p>
-                </div>
-                <div style={{ fontSize: 11, color: "var(--ink-3)", whiteSpace: "nowrap" }}>
-                  {relTime(n.processed || n.created)}
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-      </section>
+      {notes.length === 0 ? (
+        <div
+          className="card-soft"
+          style={{ padding: 24, textAlign: "center", color: "var(--ink-2)" }}
+        >
+          Aún no hay notas procesadas.
+        </div>
+      ) : (
+        <NotesFilters notes={lite} />
+      )}
     </div>
   );
 }
