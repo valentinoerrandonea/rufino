@@ -283,16 +283,15 @@ export function Markdown({ content, noteIds, fontSize = 14 }: MarkdownProps) {
         elements.push(
           <h3
             key={k}
+            className="serif"
             style={{
-              fontSize: 11,
-              textTransform: "uppercase" as const,
-              letterSpacing: "0.8px",
-              color: "var(--ink-3)",
-              fontWeight: 600,
+              fontSize: 18,
+              fontWeight: 500,
+              color: "var(--ink)",
               margin: 0,
-              marginBottom: 8,
-              marginTop: 20,
-              fontFamily: "inherit",
+              marginBottom: 10,
+              marginTop: 24,
+              letterSpacing: -0.1,
             }}
           >
             <Inline text={block.text} noteIds={noteIds} />
@@ -302,7 +301,18 @@ export function Markdown({ content, noteIds, fontSize = 14 }: MarkdownProps) {
 
       case "h4":
         elements.push(
-          <h4 key={k} style={{ fontSize: 13, fontWeight: 600, color: "var(--ink-2)", marginBottom: 6, marginTop: 16, fontFamily: "inherit" }}>
+          <h4
+            key={k}
+            className="serif"
+            style={{
+              fontSize: 16,
+              fontWeight: 500,
+              color: "var(--ink)",
+              marginBottom: 8,
+              marginTop: 18,
+              letterSpacing: -0.05,
+            }}
+          >
             <Inline text={block.text} noteIds={noteIds} />
           </h4>
         );

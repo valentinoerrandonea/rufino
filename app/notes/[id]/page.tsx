@@ -74,19 +74,19 @@ interface SectionBlockProps {
 
 function SectionBlock({ label, children }: SectionBlockProps) {
   return (
-    <section style={{ marginBottom: 36 }}>
-      <div
+    <section style={{ marginBottom: 40 }}>
+      <h2
+        className="serif"
         style={{
-          fontSize: 10,
-          textTransform: "uppercase",
-          letterSpacing: "1px",
-          fontWeight: 600,
+          fontSize: 22,
+          fontWeight: 500,
           color: "var(--accent)",
-          marginBottom: 14,
+          marginBottom: 16,
+          letterSpacing: -0.2,
         }}
       >
         {label}
-      </div>
+      </h2>
       {children}
     </section>
   );
@@ -258,7 +258,7 @@ export default async function NoteDetailPage({
               padding: "20px 22px",
             }}
           >
-            <Markdown content={originalContent} noteIds={noteIds} fontSize={14} />
+            <Markdown content={originalContent} noteIds={noteIds} fontSize={15.5} />
           </div>
         </SectionBlock>
       )}
@@ -273,7 +273,7 @@ export default async function NoteDetailPage({
               marginLeft: 2,
             }}
           >
-            <Markdown content={augmentationContent} noteIds={noteIds} fontSize={14} />
+            <Markdown content={augmentationContent} noteIds={noteIds} fontSize={15.5} />
           </div>
         </SectionBlock>
       )}
@@ -281,14 +281,14 @@ export default async function NoteDetailPage({
       {/* Context */}
       {contextContent && (
         <SectionBlock label="Context">
-          <Markdown content={contextContent} noteIds={noteIds} fontSize={14} />
+          <Markdown content={contextContent} noteIds={noteIds} fontSize={15.5} />
         </SectionBlock>
       )}
 
       {/* Connections */}
       {connectionsContent && (
         <SectionBlock label="Connections">
-          <Markdown content={connectionsContent} noteIds={noteIds} fontSize={14} />
+          <Markdown content={connectionsContent} noteIds={noteIds} fontSize={15.5} />
         </SectionBlock>
       )}
       </FileEditor>
