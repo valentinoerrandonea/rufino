@@ -101,55 +101,62 @@ export function NotesFilters({ notes }: Props) {
 
   return (
     <div>
-      {/* Filter bar */}
+      {/* Filter bar — single line */}
       <div
         style={{
           display: "flex",
-          flexWrap: "wrap",
-          gap: 10,
+          gap: 6,
           alignItems: "center",
-          marginBottom: 20,
+          marginBottom: 18,
+          flexWrap: "nowrap",
         }}
       >
         <input
           className="input"
-          placeholder="Buscar por título, contenido o tag…"
+          placeholder="Buscar…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          style={{ minWidth: 220, flex: "0 1 320px", fontSize: 13 }}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            fontSize: 12.5,
+            padding: "5px 10px",
+            height: 28,
+          }}
         />
-        <FilterSelect
-          label="Proyecto"
-          value={projectFilter}
-          options={projects}
-          onChange={setProjectFilter}
-        />
-        <FilterSelect
-          label="Tema"
-          value={temaFilter}
-          options={temas}
-          onChange={setTemaFilter}
-        />
-        <FilterSelect
-          label="Persona"
-          value={personaFilter}
-          options={personas}
-          onChange={setPersonaFilter}
-        />
-        <FilterSelect
-          label="Concepto"
-          value={conceptoFilter}
-          options={conceptos}
-          onChange={setConceptoFilter}
-        />
+        <FilterSelect label="proyecto" value={projectFilter} options={projects} onChange={setProjectFilter} />
+        <FilterSelect label="tema" value={temaFilter} options={temas} onChange={setTemaFilter} />
+        <FilterSelect label="persona" value={personaFilter} options={personas} onChange={setPersonaFilter} />
+        <FilterSelect label="concepto" value={conceptoFilter} options={conceptos} onChange={setConceptoFilter} />
         {anyFilter && (
-          <button onClick={clearFilters} className="btn ghost sm">
-            Limpiar filtros
+          <button
+            onClick={clearFilters}
+            title="Limpiar filtros"
+            style={{
+              height: 28,
+              padding: "0 8px",
+              fontSize: 12,
+              background: "transparent",
+              border: "1px solid var(--hair)",
+              borderRadius: 6,
+              color: "var(--ink-2)",
+              cursor: "pointer",
+              flexShrink: 0,
+            }}
+          >
+            ×
           </button>
         )}
-        <div style={{ flex: 1 }} />
-        <span style={{ fontSize: 12, color: "var(--ink-3)" }}>
-          {filtered.length} de {notes.length}
+        <span
+          style={{
+            fontSize: 11,
+            color: "var(--ink-3)",
+            whiteSpace: "nowrap",
+            flexShrink: 0,
+            marginLeft: 4,
+          }}
+        >
+          {filtered.length}/{notes.length}
         </span>
       </div>
 
@@ -261,20 +268,29 @@ function FilterSelect({
     <select
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value || null)}
-      className="input"
       style={{
-        fontSize: 13,
-        padding: "7px 10px",
-        minWidth: 120,
+        fontSize: 12,
+        padding: "0 22px 0 8px",
+        height: 28,
+        border: "1px solid var(--hair)",
+        borderRadius: 6,
         background: value ? "var(--accent-wash)" : "var(--surface)",
-        color: value ? "var(--accent)" : "var(--ink)",
+        color: value ? "var(--accent)" : "var(--ink-2)",
         cursor: "pointer",
+        flexShrink: 0,
+        maxWidth: 130,
+        appearance: "none",
+        WebkitAppearance: "none",
+        backgroundImage:
+          "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='6' viewBox='0 0 8 6'><path fill='%239a948c' d='M4 6L0 0h8z'/></svg>\")",
+        backgroundRepeat: "no-repeat",
+        backgroundPosition: "right 8px center",
       }}
     >
-      <option value="">{label}: todos</option>
+      <option value="">{label}</option>
       {options.map((o) => (
         <option key={o} value={o}>
-          {label}: {o}
+          {o}
         </option>
       ))}
     </select>
