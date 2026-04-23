@@ -1,8 +1,11 @@
+import fs from "node:fs/promises";
+import path from "node:path";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { readProcessedNotes } from "@/lib/vault";
+import { readProcessedNotes, VAULT_PATH } from "@/lib/vault";
 import { fmtDate } from "@/components/atoms";
 import { Markdown } from "@/components/markdown";
+import { FileEditor } from "@/components/file-editor";
 
 export const dynamic = "force-dynamic";
 
@@ -102,6 +105,10 @@ export default async function NoteDetailPage({
     notFound();
   }
 
+  // Path of this note relative to the vault root (used by the editor)
+  const noteFilePath = path.join("rufino", note.project, note.type, `${note.filename}.md`);
+  const rawFile = await fs.readFile(path.join(VAULT_PATH, noteFilePath), "utf-8");
+
   // Build set of known note IDs for wikilink resolution
   const noteIds = new Set(notes.map((n) => n.id));
 
@@ -138,9 +145,24 @@ export default async function NoteDetailPage({
       : "";
 
   return (
-    <div style={{ padding: "48px 56px 80px", maxWidth: 760, margin: "0 auto" }}>
+    <div style={{ padding: "48px 72px 80px", maxWidth: 1100, margin: "0 auto" }}>
+      <FileEditor
+        relativePath={noteFilePath}
+        initialContent={rawFile}
+        revalidate={[`/notes/${id}`, "/notes", "/"]}
+      >
+        {(editButton) => (
+          <>
       {/* Top bar */}
-      <div style={{ marginBottom: 32 }}>
+      <div
+        style={{
+          marginBottom: 32,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 10,
+        }}
+      >
         <Link
           href="/notes"
           className="btn ghost sm"
@@ -148,6 +170,7 @@ export default async function NoteDetailPage({
         >
           ← Volver a notas
         </Link>
+        {editButton}
       </div>
 
       {/* Header */}
@@ -270,6 +293,9 @@ export default async function NoteDetailPage({
           <Markdown content={connectionsContent} noteIds={noteIds} fontSize={14} />
         </SectionBlock>
       )}
+          </>
+        )}
+      </FileEditor>
     </div>
   );
 }

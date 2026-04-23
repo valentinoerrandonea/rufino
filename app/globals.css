@@ -40,9 +40,10 @@
   --ink-dim: #4e4a44;
   --hair: #3a3632;
   --hair-soft: #322f2b;
-  --accent: #d99362;
-  --accent-2: #e5a97e;
-  --accent-wash: rgba(217, 147, 98, 0.12);
+  /* Accent stays constant across themes (set in :root and tweaks panel) */
+  --accent: #b06836;
+  --accent-2: #c47a48;
+  --accent-wash: rgba(176, 104, 54, 0.12);
   --green: #7aa878;
   --amber: #d9b05a;
   --red: #d06b5e;

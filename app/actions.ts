@@ -1,8 +1,10 @@
 "use server";
 
+import fs from "node:fs/promises";
+import path from "node:path";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { writeRawNote, appendTodo, writePersonFile } from "@/lib/vault";
+import { writeRawNote, appendTodo, writePersonFile, VAULT_PATH } from "@/lib/vault";
 import { updateTodoInFile } from "@/lib/todos";
 import { triggerProcessor } from "@/lib/processor";
 
@@ -67,6 +69,37 @@ export async function createTodo(formData: FormData): Promise<void> {
   revalidatePath("/");
   revalidatePath("/pendientes");
   redirect("/pendientes");
+}
+
+/**
+ * Save edited content back to a file in the vault.
+ * Guards: only accepts paths inside VAULT_PATH (prevents path traversal).
+ */
+export async function saveFileContent(params: {
+  /** Path relative to the vault root (e.g., "rufino/general/tech/foo.md" or "perfil.md") */
+  relativePath: string;
+  content: string;
+  /** Paths to revalidate (e.g., ["/notes/foo", "/notes"]) */
+  revalidate?: string[];
+}): Promise<void> {
+  const { relativePath, content, revalidate = [] } = params;
+
+  // Normalize and validate
+  const target = path.resolve(VAULT_PATH, relativePath);
+  const rel = path.relative(VAULT_PATH, target);
+  if (rel.startsWith("..") || path.isAbsolute(rel)) {
+    throw new Error("Invalid path: outside vault");
+  }
+
+  // Ensure the file exists (only edit, not create-new-anywhere)
+  try {
+    await fs.access(target);
+  } catch {
+    throw new Error(`File not found: ${relativePath}`);
+  }
+
+  await fs.writeFile(target, content, "utf-8");
+  for (const p of revalidate) revalidatePath(p);
 }
 
 export async function createPerson(formData: FormData): Promise<void> {

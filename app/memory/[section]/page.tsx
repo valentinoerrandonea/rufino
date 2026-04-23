@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import matter from "gray-matter";
 import { VAULT_PATH } from "@/lib/vault";
 import { MemoryMarkdown } from "@/components/memory-markdown";
+import { FileEditor } from "@/components/file-editor";
 
 export const dynamic = "force-dynamic";
 
@@ -166,11 +167,12 @@ export default async function MemoryPage({
   // Static doc view (perfil, preferencias, stack)
   const filepath = path.join(VAULT_PATH, meta.file);
   let content = "";
+  let rawFile = "";
   let frontmatter: { created?: string; updated?: string; tags?: string[] } = {};
 
   try {
-    const raw = await fs.readFile(filepath, "utf-8");
-    const parsed = matter(raw);
+    rawFile = await fs.readFile(filepath, "utf-8");
+    const parsed = matter(rawFile);
     content = parsed.content;
     const data = parsed.data as Record<string, unknown>;
     frontmatter = {
@@ -186,20 +188,51 @@ export default async function MemoryPage({
   const pageTitle = titleMatch ? titleMatch[1].trim() : meta.title;
 
   return (
-    <div style={{ padding: "48px 56px 80px", maxWidth: 800, margin: "0 auto" }}>
-      <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6 }}>
-        Memoria
-      </div>
-      <h1 className="serif" style={{ fontSize: 30, fontWeight: 400, margin: "0 0 24px", letterSpacing: -0.3 }}>
-        {pageTitle}
-      </h1>
-
-      {content ? (
-        <MemoryMarkdown content={content} meta={frontmatter} stripTitle />
+    <div style={{ padding: "48px 56px 80px", maxWidth: 960, margin: "0 auto" }}>
+      {rawFile ? (
+        <FileEditor
+          relativePath={meta.file}
+          initialContent={rawFile}
+          revalidate={[`/memory/${section}`]}
+        >
+          {(editButton) => (
+            <>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  justifyContent: "space-between",
+                  gap: 10,
+                  marginBottom: 6,
+                }}
+              >
+                <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.8 }}>
+                  Memoria
+                </div>
+                {editButton}
+              </div>
+              <h1
+                className="serif"
+                style={{ fontSize: 30, fontWeight: 400, margin: "0 0 24px", letterSpacing: -0.3 }}
+              >
+                {pageTitle}
+              </h1>
+              <MemoryMarkdown content={content} meta={frontmatter} stripTitle />
+            </>
+          )}
+        </FileEditor>
       ) : (
-        <p style={{ fontSize: 14, color: "var(--ink-3)" }}>
-          Archivo no encontrado: {meta.file}
-        </p>
+        <>
+          <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6 }}>
+            Memoria
+          </div>
+          <h1 className="serif" style={{ fontSize: 30, fontWeight: 400, margin: "0 0 24px", letterSpacing: -0.3 }}>
+            {pageTitle}
+          </h1>
+          <p style={{ fontSize: 14, color: "var(--ink-3)" }}>
+            Archivo no encontrado: {meta.file}
+          </p>
+        </>
       )}
     </div>
   );

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { readPeople } from "@/lib/vault";
 
 export const dynamic = "force-dynamic";
@@ -16,48 +17,59 @@ export default async function PeoplePage() {
         </p>
       </header>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 14 }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+          gap: 12,
+        }}
+      >
         {people.map((p) => (
-          <div key={p.id} className="card" style={{ padding: 18 }}>
-            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-              <div className="avatar" style={{ width: 40, height: 40, fontSize: 16 }}>
-                {p.name.charAt(0).toUpperCase()}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="serif" style={{ fontSize: 16, fontWeight: 500 }}>
-                  {p.name}
-                </div>
-                {p.rol && (
-                  <div style={{ fontSize: 12, color: "var(--ink-2)" }}>{p.rol}</div>
-                )}
-              </div>
-              <span style={{ fontSize: 11, color: "var(--ink-3)" }}>
-                {p.mentions} {p.mentions === 1 ? "mención" : "menciones"}
-              </span>
+          <Link
+            key={p.id}
+            href={`/people/${p.id}`}
+            className="card hoverable"
+            style={{
+              padding: 16,
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              textDecoration: "none",
+              color: "inherit",
+            }}
+          >
+            <div className="avatar" style={{ width: 40, height: 40, fontSize: 16 }}>
+              {p.name.charAt(0).toUpperCase()}
             </div>
-            {p.bio && (
-              <p
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                className="serif"
                 style={{
-                  fontSize: 12.5,
-                  color: "var(--ink-2)",
-                  lineHeight: 1.5,
-                  marginTop: 12,
-                  marginBottom: 0,
+                  fontSize: 15,
+                  fontWeight: 500,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
                 }}
               >
-                {p.bio}
-              </p>
-            )}
-            {p.projects.length > 0 && (
-              <div style={{ display: "flex", gap: 6, marginTop: 12, flexWrap: "wrap" }}>
-                {p.projects.map((pr) => (
-                  <span key={pr} className="chip sm">
-                    {pr}
-                  </span>
-                ))}
+                {p.name}
               </div>
-            )}
-          </div>
+              {p.rol && (
+                <div
+                  style={{
+                    fontSize: 11.5,
+                    color: "var(--ink-3)",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    marginTop: 2,
+                  }}
+                >
+                  {p.rol}
+                </div>
+              )}
+            </div>
+          </Link>
         ))}
       </div>
     </div>

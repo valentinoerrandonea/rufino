@@ -3,8 +3,9 @@ import path from "node:path";
 import matter from "gray-matter";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { RUFINO_PATH } from "@/lib/vault";
+import { RUFINO_PATH, VAULT_PATH } from "@/lib/vault";
 import { Section } from "@/components/atoms";
+import { FileEditor } from "@/components/file-editor";
 
 export const dynamic = "force-dynamic";
 
@@ -85,16 +86,36 @@ export default async function PersonDetailPage({ params }: PageProps) {
 
   if (!person) notFound();
 
+  // Read raw file for editor
+  const personFilePath = path.join("rufino", "_people", `${id}.md`);
+  const rawFile = await fs.readFile(path.join(VAULT_PATH, personFilePath), "utf-8");
+
   return (
     <div style={{ padding: "48px 56px 80px", maxWidth: 860, margin: "0 auto" }}>
-      <div style={{ marginBottom: 32 }}>
+      <FileEditor
+        relativePath={personFilePath}
+        initialContent={rawFile}
+        revalidate={[`/people/${id}`, "/people", "/"]}
+      >
+        {(editButton) => (
+          <>
+      <div
+        style={{
+          marginBottom: 32,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 10,
+        }}
+      >
         <Link
           href="/people"
           className="btn ghost sm"
-          style={{ textDecoration: "none", marginBottom: 20, display: "inline-flex" }}
+          style={{ textDecoration: "none", display: "inline-flex" }}
         >
           ← Volver a personas
         </Link>
+        {editButton}
       </div>
 
       {/* Header */}
@@ -247,6 +268,9 @@ export default async function PersonDetailPage({ params }: PageProps) {
           </div>
         )}
       </Section>
+          </>
+        )}
+      </FileEditor>
     </div>
   );
 }
