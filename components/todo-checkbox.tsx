@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition, useState } from "react";
+import { useOptimistic, useTransition } from "react";
 import { toggleTodoState } from "@/app/actions";
 
 type TodoState = "todo" | "progress" | "done";
@@ -30,20 +30,25 @@ interface TodoCheckboxProps {
 }
 
 export function TodoCheckbox({ origin, desc, currentState }: TodoCheckboxProps) {
-  const [optimisticState, setOptimisticState] = useState<TodoState>(currentState);
+  // useOptimistic auto-syncs with the prop after the transition resolves.
+  const [optimistic, setOptimistic] = useOptimistic(
+    currentState,
+    (_: TodoState, next: TodoState) => next
+  );
   const [isPending, startTransition] = useTransition();
 
-  const handleClick = () => {
-    const next = NEXT_STATE[optimisticState];
-    setOptimisticState(next);
-
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const next = NEXT_STATE[optimistic];
     startTransition(async () => {
-      try {
-        await toggleTodoState({ origin, desc, currentState: optimisticState, nextState: next });
-      } catch {
-        // Revert optimistic update on error
-        setOptimisticState(optimisticState);
-      }
+      setOptimistic(next);
+      await toggleTodoState({
+        origin,
+        desc,
+        currentState: optimistic,
+        nextState: next,
+      });
     });
   };
 
@@ -52,11 +57,20 @@ export function TodoCheckbox({ origin, desc, currentState }: TodoCheckboxProps) 
       type="button"
       onClick={handleClick}
       disabled={isPending}
-      title={`Marcar como ${NEXT_STATE[optimisticState]}`}
-      style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex" }}
+      title={`Marcar como ${NEXT_STATE[optimistic]}`}
+      style={{
+        background: "none",
+        border: "none",
+        padding: 0,
+        cursor: isPending ? "wait" : "pointer",
+        display: "flex",
+      }}
     >
-      <div className={CB_CLASS[optimisticState]} style={{ opacity: isPending ? 0.6 : 1 }}>
-        <span className="cb-mark">{CB_MARK[optimisticState]}</span>
+      <div
+        className={CB_CLASS[optimistic]}
+        style={{ opacity: isPending ? 0.6 : 1 }}
+      >
+        <span className="cb-mark">{CB_MARK[optimistic]}</span>
       </div>
     </button>
   );

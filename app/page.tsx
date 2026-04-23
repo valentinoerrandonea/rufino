@@ -29,11 +29,31 @@ export default async function HomePage() {
     return days >= 0 && days <= 7;
   });
 
-  const priority = [
-    ...overdue,
-    ...dueToday.filter((t) => !overdue.includes(t)),
-    ...dueSoon.filter((t) => !overdue.includes(t) && !dueToday.includes(t)),
-  ].slice(0, 6);
+  // Show ALL active todos, sorted by: vencidos → con deadline (asc) → sin deadline
+  const nowTs = Date.now();
+  const rank = (t: (typeof activeTodos)[number]): number => {
+    if (!t.deadline) return Number.MAX_SAFE_INTEGER;
+    const d = new Date(t.deadline);
+    if (isNaN(d.getTime())) return Number.MAX_SAFE_INTEGER;
+    return d.getTime();
+  };
+  const priority = [...activeTodos].sort((a, b) => {
+    const ra = rank(a);
+    const rb = rank(b);
+    if (ra !== rb) return ra - rb;
+    // Within same deadline bucket, por hacer before en progreso (progress is "later" in the workflow)
+    if (a.state !== b.state) {
+      if (a.state === "todo") return -1;
+      if (b.state === "todo") return 1;
+    }
+    return 0;
+  });
+  // Mark overdue for styling (based on deadline < now)
+  const isOverdue = (t: (typeof activeTodos)[number]) => {
+    if (!t.deadline) return false;
+    const d = new Date(t.deadline);
+    return !isNaN(d.getTime()) && d.getTime() < nowTs;
+  };
 
   const recentNotes = notes.slice(0, 4);
 

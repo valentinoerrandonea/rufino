@@ -61,6 +61,24 @@ async function readSafe(p: string): Promise<string | null> {
   }
 }
 
+// Content-based stable ID for todos. Unique across a snapshot as long as
+// (origin, desc) is unique — which it should be for todos derived from the
+// same source. Used as React key; stays stable when a todo moves between
+// sections.
+function stableId(origin: string, desc: string): string {
+  const slug = (s: string) =>
+    s
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 60);
+  const o = slug(origin) || "none";
+  const d = slug(desc);
+  return `t_${o}__${d}`;
+}
+
 async function walk(dir: string): Promise<string[]> {
   const out: string[] = [];
   const entries = await fs.readdir(dir, { withFileTypes: true }).catch(() => []);
@@ -172,14 +190,15 @@ export async function readTodos(): Promise<{ porHacer: Todo[]; enProgreso: Todo[
         // Completados: Pendiente | Proyecto/Arista | Personas | Origen | Completado
         if (name === "Completados") {
           const [desc, projectArista, people, origin, completed] = cols;
+          const cleanOrigin = origin.replace(/\[\[|\]\]/g, "").trim();
           return {
-            id: `done-${i}`,
+            id: stableId(cleanOrigin, desc),
             state: "done",
             desc,
             projectArista,
             people: people.split(/[\s,]+/).filter((p) => p && p !== "-"),
             deadline: null,
-            origin: origin.replace(/\[\[|\]\]/g, ""),
+            origin: cleanOrigin,
             created: "",
             completed,
           };
@@ -191,14 +210,15 @@ export async function readTodos(): Promise<{ porHacer: Todo[]; enProgreso: Todo[
           "[x]": "done",
           "[X]": "done",
         };
+        const cleanOrigin = origin.replace(/\[\[|\]\]/g, "").trim();
         return {
-          id: `${name.toLowerCase()}-${i}`,
+          id: stableId(cleanOrigin, desc),
           state: stateMap[state] || "todo",
           desc,
           projectArista,
           people: people.split(/[\s,]+/).filter((p) => p && p !== "-"),
           deadline: deadline === "-" ? null : deadline,
-          origin: origin.replace(/\[\[|\]\]/g, ""),
+          origin: cleanOrigin,
           created,
         };
       })
