@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { writeRawNote, appendTodo, writePersonFile } from "@/lib/vault";
 import { updateTodoInFile } from "@/lib/todos";
+import { triggerProcessor } from "@/lib/processor";
 
 type TodoState = "todo" | "progress" | "done";
 
@@ -37,9 +38,15 @@ export async function createNote(formData: FormData): Promise<void> {
   const filename = `${base}-${Date.now().toString().slice(-6)}.md`;
 
   await writeRawNote(filename, body);
+
+  // Fire the processor in the background — it will pick up this note (and any
+  // others waiting in the inbox) and process them asynchronously. The script
+  // itself handles locking to avoid concurrent runs.
+  triggerProcessor();
+
   revalidatePath("/");
   revalidatePath("/notes");
-  redirect("/");
+  redirect("/notes");
 }
 
 export async function createTodo(formData: FormData): Promise<void> {
