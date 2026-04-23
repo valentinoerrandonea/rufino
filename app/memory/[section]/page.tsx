@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import matter from "gray-matter";
 import { VAULT_PATH } from "@/lib/vault";
 import { MemoryMarkdown } from "@/components/memory-markdown";
-import { FileEditor } from "@/components/file-editor";
+import { FileEditor, EditButton } from "@/components/file-editor";
 
 export const dynamic = "force-dynamic";
 
@@ -195,31 +195,27 @@ export default async function MemoryPage({
           initialContent={rawFile}
           revalidate={[`/memory/${section}`]}
         >
-          {(editButton) => (
-            <>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  justifyContent: "space-between",
-                  gap: 10,
-                  marginBottom: 6,
-                }}
-              >
-                <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.8 }}>
-                  Memoria
-                </div>
-                {editButton}
-              </div>
-              <h1
-                className="serif"
-                style={{ fontSize: 30, fontWeight: 400, margin: "0 0 24px", letterSpacing: -0.3 }}
-              >
-                {pageTitle}
-              </h1>
-              <MemoryMarkdown content={content} meta={frontmatter} stripTitle />
-            </>
-          )}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              justifyContent: "space-between",
+              gap: 10,
+              marginBottom: 6,
+            }}
+          >
+            <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.8 }}>
+              Memoria
+            </div>
+            <EditButton />
+          </div>
+          <h1
+            className="serif"
+            style={{ fontSize: 30, fontWeight: 400, margin: "0 0 24px", letterSpacing: -0.3 }}
+          >
+            {pageTitle}
+          </h1>
+          <MemoryMarkdown content={content} meta={frontmatter} stripTitle />
         </FileEditor>
       ) : (
         <>

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { readProcessedNotes, VAULT_PATH } from "@/lib/vault";
 import { fmtDate } from "@/components/atoms";
 import { Markdown } from "@/components/markdown";
-import { FileEditor } from "@/components/file-editor";
+import { FileEditor, EditButton } from "@/components/file-editor";
 
 export const dynamic = "force-dynamic";
 
@@ -151,27 +151,25 @@ export default async function NoteDetailPage({
         initialContent={rawFile}
         revalidate={[`/notes/${id}`, "/notes", "/"]}
       >
-        {(editButton) => (
-          <>
-      {/* Top bar */}
-      <div
-        style={{
-          marginBottom: 32,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 10,
-        }}
-      >
-        <Link
-          href="/notes"
-          className="btn ghost sm"
-          style={{ textDecoration: "none", display: "inline-flex" }}
+        {/* Top bar */}
+        <div
+          style={{
+            marginBottom: 32,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+          }}
         >
-          ← Volver a notas
-        </Link>
-        {editButton}
-      </div>
+          <Link
+            href="/notes"
+            className="btn ghost sm"
+            style={{ textDecoration: "none", display: "inline-flex" }}
+          >
+            ← Volver a notas
+          </Link>
+          <EditButton />
+        </div>
 
       {/* Header */}
       <header style={{ marginBottom: 36 }}>
@@ -293,8 +291,6 @@ export default async function NoteDetailPage({
           <Markdown content={connectionsContent} noteIds={noteIds} fontSize={14} />
         </SectionBlock>
       )}
-          </>
-        )}
       </FileEditor>
     </div>
   );

@@ -1,20 +1,33 @@
 "use client";
 
-import { useState, useTransition, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useTransition,
+  type ReactNode,
+} from "react";
 import { useRouter } from "next/navigation";
 import { saveFileContent } from "@/app/actions";
+
+interface FileEditorCtx {
+  editing: boolean;
+  start: () => void;
+}
+
+const Ctx = createContext<FileEditorCtx | null>(null);
 
 interface FileEditorProps {
   relativePath: string;
   initialContent: string;
   revalidate?: string[];
-  /** What to render when NOT editing. Receives the "Editar" trigger as prop. */
-  children: (editButton: ReactNode) => ReactNode;
+  children: ReactNode;
 }
 
 /**
- * Wraps read-only content with an edit button that swaps to a textarea editor.
- * On save, writes the file via server action and refreshes.
+ * Wraps a content tree and provides edit mode through context.
+ * When `editing` is true, replaces the children with a raw markdown editor.
+ * Children can include an <EditButton /> to trigger edit mode.
  */
 export function FileEditor({
   relativePath,
@@ -91,11 +104,11 @@ export function FileEditor({
           className="input mono"
           spellCheck={false}
           style={{
-            minHeight: 500,
+            minHeight: 600,
             resize: "vertical",
             fontSize: 13,
-            lineHeight: 1.6,
-            padding: 18,
+            lineHeight: 1.65,
+            padding: 20,
             fontFamily: "var(--font-mono), ui-monospace, monospace",
             border: "1px solid var(--hair)",
           }}
@@ -118,19 +131,24 @@ export function FileEditor({
     );
   }
 
-  const editButton = (
+  return (
+    <Ctx.Provider value={{ editing, start: () => setEditing(true) }}>
+      {children}
+    </Ctx.Provider>
+  );
+}
+
+export function EditButton({ label = "Editar" }: { label?: string }) {
+  const ctx = useContext(Ctx);
+  if (!ctx) return null;
+  return (
     <button
       type="button"
       className="btn ghost sm"
-      onClick={() => {
-        setDraft(initialContent);
-        setEditing(true);
-      }}
+      onClick={ctx.start}
       style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
     >
-      ✏ Editar
+      ✏ {label}
     </button>
   );
-
-  return <>{children(editButton)}</>;
 }
