@@ -21,6 +21,7 @@ export default async function NotesPage() {
     excerpt: n.excerpt,
     created: n.created,
     processed: n.processed,
+    mtime: n.mtime,
   }));
 
   return (

@@ -17,6 +17,8 @@ export type ProcessedNote = {
   status: "processed" | "raw";
   created: string;
   processed?: string;
+  /** fs mtime of the note file (ISO) — used for accurate ordering/relTime since `processed` is date-only */
+  mtime: string;
   original: string; // raw content above the separator
   augmentation: string; // content below the separator
   body: string; // full body
@@ -129,6 +131,8 @@ export async function readProcessedNotes(): Promise<ProcessedNote[]> {
 
     const { original, augmentation } = parseBody(content.replace(/^#\s+.+$/m, "").trim());
 
+    const stat = await fs.stat(file);
+
     notes.push({
       id: filename,
       filename,
@@ -140,13 +144,17 @@ export async function readProcessedNotes(): Promise<ProcessedNote[]> {
       status: "processed",
       created: data.created ? String(data.created) : "",
       processed: data.processed ? String(data.processed) : undefined,
+      mtime: stat.mtime.toISOString(),
       original,
       augmentation,
       body: content,
       excerpt: original.split("\n").find((l) => l.trim()) || "",
     });
   }
-  return notes.sort((a, b) => (b.processed || b.created).localeCompare(a.processed || a.created));
+  // Sort by mtime DESC (most recently written first). mtime is a full ISO
+  // timestamp, so intra-day ordering is deterministic — unlike the date-only
+  // `processed` field, which collapses everything from the same day.
+  return notes.sort((a, b) => b.mtime.localeCompare(a.mtime));
 }
 
 export async function readRawNotes(): Promise<RawNote[]> {

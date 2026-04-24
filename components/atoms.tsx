@@ -85,6 +85,23 @@ export function fmtDate(iso: string, opts: { time?: boolean } = {}): string {
 
 export function relTime(iso: string): string {
   if (!iso) return "—";
+
+  // Date-only strings ("YYYY-MM-DD") parsed with `new Date()` become UTC
+  // midnight, which shifts by the TZ offset and makes "today" look like
+  // "hace N horas". Treat them as local calendar dates instead.
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(iso);
+  if (dateOnly) {
+    const [y, m, d] = iso.split("-").map(Number);
+    const target = new Date(y, m - 1, d);
+    const now = new Date();
+    const midToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const days = Math.round((midToday.getTime() - target.getTime()) / 86400000);
+    if (days <= 0) return "hoy";
+    if (days === 1) return "ayer";
+    if (days < 7) return `hace ${days} días`;
+    return fmtDate(iso);
+  }
+
   const diff = (Date.now() - new Date(iso).getTime()) / 1000;
   if (diff < 60) return "hace instantes";
   if (diff < 3600) return `hace ${Math.floor(diff / 60)} min`;

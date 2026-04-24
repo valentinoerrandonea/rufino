@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { fmtDate } from "@/components/atoms";
 
 // Inline tokens: **bold**, *italic*, `code`, [text](url), [[wikilink]]
 function renderInline(text: string): ReactNode[] {
@@ -180,19 +181,19 @@ function renderBlock(block: Block, idx: number): ReactNode {
   switch (block.type) {
     case "h1":
       return (
-        <h1 key={idx} className="serif" style={{ fontSize: 28, fontWeight: 400, margin: "0 0 12px", letterSpacing: -0.3 }}>
+        <h1 key={idx} className="serif" style={{ fontSize: 28, fontWeight: 400, margin: "0 0 12px", letterSpacing: -0.3, color: "var(--accent)" }}>
           {renderInline(block.text)}
         </h1>
       );
     case "h2":
       return (
-        <h2 key={idx} className="serif" style={{ fontSize: 20, fontWeight: 500, margin: "32px 0 10px", letterSpacing: -0.2 }}>
+        <h2 key={idx} className="serif" style={{ fontSize: 20, fontWeight: 500, margin: "32px 0 10px", letterSpacing: -0.2, color: "var(--accent)" }}>
           {renderInline(block.text)}
         </h2>
       );
     case "h3":
       return (
-        <h3 key={idx} className="serif" style={{ fontSize: 17, fontWeight: 500, margin: "24px 0 8px", letterSpacing: -0.1 }}>
+        <h3 key={idx} className="serif" style={{ fontSize: 17, fontWeight: 500, margin: "24px 0 8px", letterSpacing: -0.1, color: "var(--accent)" }}>
           {renderInline(block.text)}
         </h3>
       );
@@ -323,13 +324,13 @@ export function MemoryMarkdown({ content, meta, stripTitle = false }: MemoryMark
           }}
         >
           {meta.updated && (
-            <span style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.8 }}>
-              Actualizado {meta.updated}
+            <span style={{ fontSize: 11, color: "var(--ink-3)" }}>
+              Actualizado {fmtDate(meta.updated)}
             </span>
           )}
           {meta.created && (
-            <span style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.8 }}>
-              Creado {meta.created}
+            <span style={{ fontSize: 11, color: "var(--ink-3)" }}>
+              Creado {fmtDate(meta.created)}
             </span>
           )}
           {meta.tags &&
@@ -338,8 +339,9 @@ export function MemoryMarkdown({ content, meta, stripTitle = false }: MemoryMark
                 key={tag}
                 style={{
                   fontSize: 10.5,
-                  color: "var(--ink-3)",
-                  border: "1px solid var(--hair)",
+                  color: "var(--accent)",
+                  background: "var(--accent-wash)",
+                  border: "1px solid var(--accent-wash)",
                   padding: "2px 8px",
                   borderRadius: 4,
                 }}

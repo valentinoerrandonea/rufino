@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import matter from "gray-matter";
 import { VAULT_PATH } from "@/lib/vault";
 import { MemoryMarkdown } from "@/components/memory-markdown";
+import { fmtDate } from "@/components/atoms";
 
 export const dynamic = "force-dynamic";
 
@@ -95,27 +96,18 @@ function NoteList({ notes, emptyLabel }: { notes: NoteFile[]; emptyLabel: string
               alignItems: "center",
               justifyContent: "space-between",
               gap: 16,
-              padding: "14px 18px",
+              padding: "18px 22px",
               cursor: "pointer",
               listStyle: "none",
               background: "var(--surface)",
               userSelect: "none",
             }}
           >
-            <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1, minWidth: 0 }}>
-              <span className="serif" style={{ fontSize: 15, fontWeight: 500 }}>{n.title}</span>
-              {n.tags.length > 0 && (
-                <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                  {n.tags.map((t) => (
-                    <span key={t} style={{ fontSize: 10.5, color: "var(--ink-3)", border: "1px solid var(--hair)", padding: "1px 6px", borderRadius: 4 }}>
-                      {t}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
+            <span className="serif" style={{ fontSize: 18, fontWeight: 500, color: "var(--accent)", flex: 1, minWidth: 0, lineHeight: 1.3 }}>
+              {n.title}
+            </span>
             {n.date && (
-              <span style={{ fontSize: 11.5, color: "var(--ink-3)", flexShrink: 0 }}>{n.date}</span>
+              <span style={{ fontSize: 12, color: "var(--ink-3)", flexShrink: 0 }}>{fmtDate(n.date)}</span>
             )}
           </summary>
           <div style={{ padding: "20px 24px 24px", background: "var(--bg)", borderTop: "1px solid var(--hair-soft)" }}>

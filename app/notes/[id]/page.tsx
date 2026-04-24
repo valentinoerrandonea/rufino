@@ -5,7 +5,7 @@ import Link from "next/link";
 import { readProcessedNotes, VAULT_PATH } from "@/lib/vault";
 import { fmtDate } from "@/components/atoms";
 import { Markdown } from "@/components/markdown";
-import { FileEditor, EditButton } from "@/components/file-editor";
+import { NoteEditor, NoteEditButton } from "@/components/note-editor";
 
 export const dynamic = "force-dynamic";
 
@@ -146,10 +146,14 @@ export default async function NoteDetailPage({
 
   return (
     <div style={{ padding: "48px 72px 80px", maxWidth: 1100, margin: "0 auto" }}>
-      <FileEditor
+      <NoteEditor
         relativePath={noteFilePath}
         initialContent={rawFile}
         revalidate={[`/notes/${id}`, "/notes", "/"]}
+        project={note.project}
+        arista={note.arista}
+        dateLabel={fmtDate(note.processed || note.created)}
+        title={note.title}
       >
         {/* Top bar */}
         <div
@@ -168,7 +172,7 @@ export default async function NoteDetailPage({
           >
             ← Volver a notas
           </Link>
-          <EditButton />
+          <NoteEditButton />
         </div>
 
       {/* Header */}
@@ -291,7 +295,7 @@ export default async function NoteDetailPage({
           <Markdown content={connectionsContent} noteIds={noteIds} fontSize={15.5} />
         </SectionBlock>
       )}
-      </FileEditor>
+      </NoteEditor>
     </div>
   );
 }

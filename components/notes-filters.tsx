@@ -14,6 +14,7 @@ type NoteLite = {
   excerpt: string;
   created: string;
   processed?: string;
+  mtime: string;
 };
 
 interface Props {
@@ -67,7 +68,9 @@ export function NotesFilters({ notes }: Props) {
     });
   }, [notes, q, projectFilter, temaFilter, personaFilter, conceptoFilter]);
 
-  // Group filtered notes by project
+  // Group filtered notes by project; newest-first both across groups and within each group.
+  // Projects are ordered by their most recent note's mtime; within a project, notes are
+  // sorted by mtime DESC. 'general' still floats to the end when it has notes.
   const grouped = useMemo(() => {
     const byProject = new Map<string, NoteLite[]>();
     for (const n of filtered) {
@@ -75,11 +78,13 @@ export function NotesFilters({ notes }: Props) {
       list.push(n);
       byProject.set(n.project, list);
     }
-    // Sort projects alphabetically; 'general' last if present
+    for (const list of byProject.values()) {
+      list.sort((a, b) => b.mtime.localeCompare(a.mtime));
+    }
     const keys = [...byProject.keys()].sort((a, b) => {
-      if (a === "general") return 1;
-      if (b === "general") return -1;
-      return a.localeCompare(b);
+      const aMax = byProject.get(a)![0]?.mtime ?? "";
+      const bMax = byProject.get(b)![0]?.mtime ?? "";
+      return bMax.localeCompare(aMax);
     });
     return keys.map((k) => ({ project: k, notes: byProject.get(k)! }));
   }, [filtered]);
@@ -241,7 +246,7 @@ export function NotesFilters({ notes }: Props) {
                   <div
                     style={{ fontSize: 11, color: "var(--ink-3)", whiteSpace: "nowrap" }}
                   >
-                    {relTime(n.processed || n.created)}
+                    {relTime(n.mtime)}
                   </div>
                 </Link>
               ))}

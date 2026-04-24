@@ -127,14 +127,9 @@ export default async function MemoryPage({
                   transition: "border-color 0.12s",
                 }}
               >
-                <div className="serif" style={{ fontSize: 18, fontWeight: 500, lineHeight: 1.2 }}>
+                <div className="serif" style={{ fontSize: 18, fontWeight: 500, lineHeight: 1.2, color: "var(--accent)" }}>
                   {card.title}
                 </div>
-                {card.excerpt && (
-                  <div style={{ fontSize: 13, color: "var(--ink-2)", lineHeight: 1.55, flex: 1 }}>
-                    {card.excerpt}
-                  </div>
-                )}
                 <div
                   style={{
                     display: "flex",
@@ -144,17 +139,12 @@ export default async function MemoryPage({
                     paddingTop: 10,
                     borderTop: "1px solid var(--hair-soft)",
                     flexWrap: "wrap",
+                    marginTop: "auto",
                   }}
                 >
                   <span>{card.decisionCount} decisión{card.decisionCount !== 1 ? "es" : ""}</span>
                   <span>·</span>
                   <span>{card.aprendizajeCount} aprendizaje{card.aprendizajeCount !== 1 ? "s" : ""}</span>
-                  {card.updated && (
-                    <>
-                      <span>·</span>
-                      <span>{card.updated}</span>
-                    </>
-                  )}
                 </div>
               </div>
             </a>
