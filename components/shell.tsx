@@ -51,6 +51,7 @@ export function Shell({ children }: { children: ReactNode }) {
     { label: "Inicio", href: "/" },
     { label: "Notas", href: "/notes" },
     { label: "Pendientes", href: "/pendientes" },
+    { label: "Actividad", href: "/actividad" },
     { label: "Personas", href: "/people" },
   ];
 
