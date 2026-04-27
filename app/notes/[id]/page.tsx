@@ -8,6 +8,8 @@ import { Markdown } from "@/components/markdown";
 import { NoteEditor, NoteEditButton } from "@/components/note-editor";
 import { ConexionesSection } from "@/components/conexiones-section";
 import { DeleteButton } from "@/components/delete-button";
+import { ProcessingBadge } from "@/components/processing-badge";
+import { ProcessingPoller } from "@/components/processing-poller";
 import { connectionsFor } from "@/lib/triples";
 
 export const dynamic = "force-dynamic";
@@ -148,8 +150,11 @@ export default async function NoteDetailPage({
       ? note.body.slice(connectionsStart + "## Connections".length).trim()
       : "";
 
+  const inflight = note.status === "queued" || note.status === "processing";
+
   return (
     <div style={{ padding: "48px 72px 80px", maxWidth: 1100, margin: "0 auto" }}>
+      {inflight && <ProcessingPoller intervalMs={4000} />}
       <NoteEditor
         relativePath={noteFilePath}
         initialContent={rawFile}
@@ -208,12 +213,15 @@ export default async function NoteDetailPage({
         </div>
 
         {/* Title */}
-        <h1
-          className="serif"
-          style={{ fontSize: 32, fontWeight: 400, lineHeight: 1.15, marginBottom: 16 }}
-        >
-          {note.title}
-        </h1>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+          <h1
+            className="serif"
+            style={{ fontSize: 32, fontWeight: 400, lineHeight: 1.15, margin: 0 }}
+          >
+            {note.title}
+          </h1>
+          <ProcessingBadge status={note.status} />
+        </div>
 
         {/* Dates */}
         <div

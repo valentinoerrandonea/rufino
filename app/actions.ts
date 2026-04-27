@@ -4,13 +4,13 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { writeRawNote, appendTodo, writePersonFile, VAULT_PATH } from "@/lib/vault";
+import { writeRawNote, appendTodo, writePersonFile, setStatus, VAULT_PATH, RUFINO_PATH } from "@/lib/vault";
 import {
   updateTodoFieldsInFile,
   updateTodoInFile,
   updateTodoProjectInFile,
 } from "@/lib/todos";
-import { triggerProcessor } from "@/lib/processor";
+import { triggerProcessor, processFile } from "@/lib/processor";
 import { appendLogEntry } from "@/lib/log";
 import { ignoreIssue } from "@/lib/lint";
 import {
@@ -81,12 +81,17 @@ export async function createNote(formData: FormData): Promise<void> {
   const base = slug || `nota-${Date.now()}`;
   const filename = `${base}-${Date.now().toString().slice(-6)}.md`;
 
-  await writeRawNote(filename, body);
+  // Wrap the user's body in minimal frontmatter so the single-file processor
+  // can flip status: queued -> processing -> processed and we can render the
+  // "procesando" badge in the UI while it works.
+  const today = new Date().toISOString().split("T")[0];
+  const content = `---\nstatus: queued\ncreated: ${today}\nupdated: ${today}\n---\n\n${body}\n`;
+  const fullname = await writeRawNote(filename, content);
 
-  // Fire the processor in the background — it will pick up this note (and any
-  // others waiting in the inbox) and process them asynchronously. The script
-  // itself handles locking to avoid concurrent runs.
-  triggerProcessor();
+  // Fire the single-file processor async. It will do augmentation, tagging,
+  // triples, concept promotion, persona detection, pendientes extraction,
+  // and indices update — all on this one file — then mark it processed.
+  processFile(path.join(RUFINO_PATH, fullname));
 
   revalidatePath("/");
   revalidatePath("/notes");
@@ -141,7 +146,11 @@ export async function saveFileContent(params: {
   }
 
   await fs.writeFile(target, content, "utf-8");
+  // Mark queued so the UI can show "procesando" while the single-file
+  // processor runs in the background. setStatus mutates only the frontmatter.
+  await setStatus(target, "queued");
   await appendLogEntry({ op: "edit", slug: relativePath });
+  processFile(target);
   for (const p of revalidate) revalidatePath(p);
 }
 
@@ -210,6 +219,9 @@ export async function createPerson(formData: FormData): Promise<void> {
     .filter(Boolean);
 
   await writePersonFile({ id, name, relation, rol, projects, bio });
+  const personPath = path.join(VAULT_PATH, "rufino", "_people", `${id}.md`);
+  await setStatus(personPath, "queued");
+  processFile(personPath);
   revalidatePath("/");
   revalidatePath("/people");
   redirect("/people");
@@ -393,6 +405,20 @@ export async function applyImport(params: {
       slug: `_meta/ingest-applied/${params.id}.json`,
       summary: `${r.writes.length} files writes · ${r.tripleCount} triples`,
     });
+    // Each newly written file gets queued + processed async. The processor
+    // does augmentation, tagging, triples enrichment, concept promotion, etc.
+    // — turning the heuristic plan output into a real processed note.
+    for (const rel of r.writes) {
+      const abs = path.resolve(VAULT_PATH, rel);
+      const inside = path.relative(VAULT_PATH, abs);
+      if (inside.startsWith("..") || path.isAbsolute(inside)) continue;
+      try {
+        await setStatus(abs, "queued");
+        processFile(abs);
+      } catch {
+        // best-effort: a missing file or transient FS error shouldn't fail the apply
+      }
+    }
     revalidatePath("/import");
     revalidatePath("/grafo");
     revalidatePath("/actividad");

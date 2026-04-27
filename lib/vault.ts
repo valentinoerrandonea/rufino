@@ -14,7 +14,7 @@ export type ProcessedNote = {
   type: string;
   title: string;
   tags: string[];
-  status: "processed" | "raw";
+  status: "processed" | "raw" | "queued" | "processing";
   created: string;
   processed?: string;
   /** fs mtime of the note file (ISO) — used for accurate ordering/relTime since `processed` is date-only */
@@ -141,7 +141,7 @@ export async function readProcessedNotes(): Promise<ProcessedNote[]> {
       type,
       title,
       tags,
-      status: "processed",
+      status: (data.status as ProcessedNote["status"]) || "processed",
       created: data.created ? String(data.created) : "",
       processed: data.processed ? String(data.processed) : undefined,
       mtime: stat.mtime.toISOString(),
@@ -292,6 +292,36 @@ export async function writeRawNote(filename: string, content: string): Promise<s
   const filepath = path.join(RUFINO_PATH, fullname);
   await fs.writeFile(filepath, content, "utf-8");
   return fullname;
+}
+
+/**
+ * Set or update the `status` field in a file's YAML frontmatter, preserving
+ * all other fields and the body. Used by save flows to mark a note as
+ * `queued` for the single-file processor.
+ *
+ * If the file has no frontmatter, one is added (with status + today's date).
+ * If it has frontmatter without `status`, the field is inserted just before
+ * the closing `---`.
+ */
+export async function setStatus(absolutePath: string, status: string): Promise<void> {
+  const raw = await fs.readFile(absolutePath, "utf-8");
+  const today = new Date().toISOString().split("T")[0];
+  const fmMatch = raw.match(/^---\n([\s\S]*?)\n---\n?/);
+  let next: string;
+  if (fmMatch) {
+    const fm = fmMatch[1];
+    const body = raw.slice(fmMatch[0].length);
+    let newFm: string;
+    if (/^status:.*$/m.test(fm)) {
+      newFm = fm.replace(/^status:.*$/m, `status: ${status}`);
+    } else {
+      newFm = fm.trimEnd() + `\nstatus: ${status}`;
+    }
+    next = `---\n${newFm}\n---\n${body.startsWith("\n") ? body : `\n${body}`}`;
+  } else {
+    next = `---\nstatus: ${status}\ncreated: ${today}\nupdated: ${today}\n---\n\n${raw}`;
+  }
+  await fs.writeFile(absolutePath, next, "utf-8");
 }
 
 export async function appendTodo(todo: {
