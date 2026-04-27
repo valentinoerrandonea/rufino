@@ -5,8 +5,10 @@ import { notFound } from "next/navigation";
 import matter from "gray-matter";
 import { VAULT_PATH } from "@/lib/vault";
 import { readProjectOverview, type EntryPreview } from "@/lib/projects";
+import { connectionsFor } from "@/lib/triples";
 import { MemoryMarkdown } from "@/components/memory-markdown";
 import { AvatarStack } from "@/components/avatar-stack";
+import { ConexionesSection } from "@/components/conexiones-section";
 import { DeleteButton } from "@/components/delete-button";
 import { fmtDate } from "@/components/atoms";
 
@@ -84,6 +86,7 @@ export default async function ProyectoMemoryPage({
   if (!project) notFound();
 
   const sessions = await readSessionsForProject(id);
+  const connections = await connectionsFor(id);
 
   return (
     <div style={{ padding: "48px 56px 80px", maxWidth: 880, margin: "0 auto" }}>
@@ -196,6 +199,12 @@ export default async function ProyectoMemoryPage({
           )}
         </div>
       </header>
+
+      <ConexionesSection
+        outgoing={connections.outgoing}
+        incoming={connections.incoming}
+        unresolvedOut={connections.unresolvedOut}
+      />
 
       <EntrySection
         title="Decisiones"
