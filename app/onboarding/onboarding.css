@@ -7,12 +7,18 @@
   justify-content: center;
   padding: 32px;
   transition: background 0.3s;
+  -webkit-app-region: drag;
+  app-region: drag;
   background: radial-gradient(
     ellipse at 30% 20%,
     #d8c8b0 0%,
     #b09877 40%,
     #6f5d44 100%
   );
+}
+.onb-page > * {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
 }
 :root[data-theme="dark"] .onb-page {
   background: radial-gradient(

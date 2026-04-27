@@ -10,7 +10,8 @@
       <feDropShadow dx="0" dy="14" stdDeviation="22" flood-color="#000" flood-opacity="0.18"/>
     </filter>
   </defs>
-  <rect x="64" y="64" width="896" height="896" rx="200" ry="200" fill="url(#bg)"/>
+  <!-- macOS-style squircle (≈22.4% radius like Big Sur app icons) -->
+  <rect x="64" y="64" width="896" height="896" rx="225" ry="225" fill="url(#bg)"/>
 
   <!-- Feather centered, accent color, scaled and positioned -->
   <g transform="translate(220 220) scale(24.5)" stroke="#b06836" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round">

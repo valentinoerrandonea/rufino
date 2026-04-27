@@ -66,23 +66,47 @@ export function Shell({ children }: { children: ReactNode }) {
       style={{
         width: "100vw",
         height: "100vh",
-        display: "grid",
-        gridTemplateColumns: "220px 1fr",
+        display: "flex",
+        flexDirection: "column",
         background: "var(--bg)",
         overflow: "hidden",
       }}
     >
-      <aside
+      <div
+        className="drag-region"
         style={{
-          borderRight: "1px solid var(--hair)",
+          height: 36,
+          flexShrink: 0,
           background: "var(--bg-2)",
-          display: "flex",
-          flexDirection: "column",
-          padding: "20px 14px",
-          overflow: "auto",
+          borderBottom: "1px solid var(--hair-soft)",
+        }}
+      />
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          display: "grid",
+          gridTemplateColumns: "220px 1fr",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 8px 24px" }}>
+        <aside
+          style={{
+            borderRight: "1px solid var(--hair)",
+            background: "var(--bg-2)",
+            display: "flex",
+            flexDirection: "column",
+            padding: "16px 14px",
+            overflow: "auto",
+          }}
+        >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "4px 8px 20px",
+          }}
+        >
           <div
             style={{
               width: 28,
@@ -182,7 +206,8 @@ export function Shell({ children }: { children: ReactNode }) {
         <TweaksPanel open={tweaksOpen} onClose={() => setTweaksOpen(false)} />
       </aside>
 
-      <main style={{ overflow: "auto", position: "relative" }}>{children}</main>
+        <main style={{ overflow: "auto", position: "relative" }}>{children}</main>
+      </div>
     </div>
   );
 }

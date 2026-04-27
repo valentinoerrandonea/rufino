@@ -110,17 +110,16 @@ export function OnbHeader({
     <div
       style={{
         position: "relative",
-        padding: "14px 16px 16px",
+        padding: "14px 16px 16px 16px",
         flexShrink: 0,
       }}
     >
-      <TrafficLights />
       <div style={{ height: 14 }} />
       <Dots active={step} total={totalSteps} />
       {canBack ? (
         <button
           onClick={onBack}
-          className="onb-back-btn"
+          className="onb-back-btn no-drag"
           style={{
             position: "absolute",
             top: 18,

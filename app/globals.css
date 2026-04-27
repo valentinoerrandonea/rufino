@@ -354,6 +354,16 @@ textarea.input {
   letter-spacing: 0;
 }
 
+/* Electron window drag — only effective inside Electron; harmless in browser. */
+.drag-region {
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+.no-drag {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
 /* Animations */
 @keyframes fadeIn {
   from {

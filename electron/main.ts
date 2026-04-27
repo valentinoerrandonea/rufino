@@ -1,5 +1,14 @@
-import { BrowserWindow, app, ipcMain, dialog, shell, nativeTheme } from "electron";
-import { spawn, type ChildProcess } from "node:child_process";
+import {
+  BrowserWindow,
+  app,
+  ipcMain,
+  dialog,
+  shell,
+  nativeTheme,
+  utilityProcess,
+  type UtilityProcess,
+} from "electron";
+import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile, access, copyFile, readdir } from "node:fs/promises";
 import { createServer } from "node:net";
@@ -54,7 +63,11 @@ async function writeConfig(patch: Partial<Config>): Promise<Config> {
 // ──────────────────────────────────────────
 // Next.js standalone server lifecycle
 // ──────────────────────────────────────────
-let nextProcess: ChildProcess | null = null;
+// We use Electron's utilityProcess (not child_process.spawn) because it runs
+// the child as a Node-mode helper without registering a separate dock icon
+// on macOS. spawn(process.execPath, ..., ELECTRON_RUN_AS_NODE=1) caused a
+// second bouncing dock entry on every launch.
+let nextProcess: UtilityProcess | null = null;
 let nextPort: number | null = null;
 
 function findFreePort(): Promise<number> {
@@ -102,17 +115,17 @@ async function startNext(): Promise<string> {
   const cfg = await readConfig();
   const vaultPath = cfg.vaultPath ?? join(homedir(), "Files/vaultlentino");
 
-  nextProcess = spawn(process.execPath, [serverFile], {
+  nextProcess = utilityProcess.fork(serverFile, [], {
     cwd: standaloneRoot,
     env: {
       ...process.env,
-      ELECTRON_RUN_AS_NODE: "1",
       NODE_ENV: "production",
       PORT: String(port),
       HOSTNAME: "127.0.0.1",
       RUFINO_VAULT_PATH: vaultPath,
     },
-    stdio: ["ignore", "pipe", "pipe"],
+    stdio: "pipe",
+    serviceName: "rufino-next-server",
   });
 
   nextProcess.stdout?.on("data", (d) => {
@@ -121,8 +134,8 @@ async function startNext(): Promise<string> {
   nextProcess.stderr?.on("data", (d) => {
     process.stderr.write(`[next] ${d}`);
   });
-  nextProcess.on("exit", (code, sig) => {
-    console.log(`[next] exited code=${code} sig=${sig}`);
+  nextProcess.on("exit", (code) => {
+    console.log(`[next] exited code=${code}`);
     nextProcess = null;
   });
 
@@ -142,9 +155,9 @@ async function startNext(): Promise<string> {
 }
 
 function stopNext() {
-  if (nextProcess && !nextProcess.killed) {
+  if (nextProcess) {
     try {
-      nextProcess.kill("SIGTERM");
+      nextProcess.kill();
     } catch (e) {
       console.error("error killing next process", e);
     }
@@ -166,7 +179,7 @@ async function createWindow(initialUrl: string) {
     backgroundColor: nativeTheme.shouldUseDarkColors ? "#1e1c1a" : "#f7f4ee",
     title: "Rufino",
     titleBarStyle: "hiddenInset",
-    trafficLightPosition: { x: 14, y: 16 },
+    trafficLightPosition: { x: 14, y: 12 },
     webPreferences: {
       preload: join(__dirname, "preload.js"),
       contextIsolation: true,
