@@ -75,10 +75,13 @@ function findFreePort(): Promise<number> {
 }
 
 function nextStandaloneRoot(): string {
-  // In dev (electron .) we run from project root with .next/ at the root.
-  // In packaged app, app.asar contains .next/standalone.
+  // In dev (electron .) the standalone tree lives at project-root/.next/standalone.
+  // When packaged, electron-builder copies it (via extraResources) to
+  // <app>/Contents/Resources/next-server. Copying it as extraResources keeps
+  // the standalone's nested node_modules intact, which electron-builder's
+  // normal "files" filter would otherwise strip.
   if (app.isPackaged) {
-    return join(process.resourcesPath, "app.asar.unpacked", ".next", "standalone");
+    return join(process.resourcesPath, "next-server");
   }
   return join(app.getAppPath(), ".next", "standalone");
 }

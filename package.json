@@ -44,15 +44,20 @@
     },
     "files": [
       "dist-electron/**/*",
-      ".next/standalone/**/*",
-      ".next/static/**/*",
-      "public/**/*",
-      "package.json"
+      "package.json",
+      "!node_modules/**/*",
+      "!**/*.md",
+      "!**/*.ts",
+      "!**/*.map"
     ],
     "extraResources": [
       {
         "from": "resources/claude-config",
         "to": "claude-config"
+      },
+      {
+        "from": ".next/standalone",
+        "to": "next-server"
       }
     ],
     "mac": {
