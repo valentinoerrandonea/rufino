@@ -35,7 +35,7 @@ export type RawNote = {
 
 export type Todo = {
   id: string;
-  state: "todo" | "progress" | "done";
+  state: "todo" | "done";
   desc: string;
   projectArista: string;
   people: string[];
@@ -177,7 +177,7 @@ export async function readRawNotes(): Promise<RawNote[]> {
   return out.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
-export async function readTodos(): Promise<{ porHacer: Todo[]; enProgreso: Todo[]; completados: Todo[] }> {
+export async function readTodos(): Promise<{ porHacer: Todo[]; completados: Todo[] }> {
   const file = path.join(RUFINO_PATH, "_pendientes.md");
   const raw = (await readSafe(file)) || "";
   const { content } = matter(raw);
@@ -193,9 +193,10 @@ export async function readTodos(): Promise<{ porHacer: Todo[]; enProgreso: Todo[
     return rows
       .map((line, i): Todo | null => {
         const cols = line.split("|").map((c) => c.trim()).filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
-        if (cols.length < 6) return null;
-        // Por hacer/En progreso: Estado | Pendiente | Proyecto/Arista | Personas | Deadline | Origen | Creado
-        // Completados: Pendiente | Proyecto/Arista | Personas | Origen | Completado
+        // Por hacer/En progreso: Estado | Pendiente | Proyecto/Arista | Personas | Deadline | Origen | Creado (7 cols)
+        // Completados: Pendiente | Proyecto/Arista | Personas | Origen | Completado (5 cols)
+        const minCols = name === "Completados" ? 5 : 7;
+        if (cols.length < minCols) return null;
         if (name === "Completados") {
           const [desc, projectArista, people, origin, completed] = cols;
           const cleanOrigin = origin.replace(/\[\[|\]\]/g, "").trim();
@@ -212,9 +213,11 @@ export async function readTodos(): Promise<{ porHacer: Todo[]; enProgreso: Todo[
           };
         }
         const [state, desc, projectArista, people, deadline, origin, created] = cols;
+        // Legacy "[/]" (in-progress) rows are folded into "todo" because
+        // the dashboard only models two states now.
         const stateMap: Record<string, Todo["state"]> = {
           "[ ]": "todo",
-          "[/]": "progress",
+          "[/]": "todo",
           "[x]": "done",
           "[X]": "done",
         };
@@ -233,9 +236,11 @@ export async function readTodos(): Promise<{ porHacer: Todo[]; enProgreso: Todo[
       .filter((t): t is Todo => t !== null);
   };
 
+  // Merge any legacy "En progreso" rows into porHacer; the dashboard no
+  // longer surfaces in-progress as a distinct state.
+  const porHacer = [...parseSection("Por hacer"), ...parseSection("En progreso")];
   return {
-    porHacer: parseSection("Por hacer"),
-    enProgreso: parseSection("En progreso"),
+    porHacer,
     completados: parseSection("Completados"),
   };
 }
@@ -382,7 +387,7 @@ export async function getProjectStats() {
   return {
     notesCount: notes.length,
     rawCount: rawNotes.length,
-    todosActive: todos.porHacer.length + todos.enProgreso.length,
+    todosActive: todos.porHacer.length,
     todosOverdue: todos.porHacer.filter((t) => {
       if (!t.deadline || t.deadline === "-") return false;
       return new Date(t.deadline) < new Date();

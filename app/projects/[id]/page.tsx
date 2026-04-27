@@ -79,7 +79,7 @@ type PageProps = {
 export default async function ProjectDetailPage({ params }: PageProps) {
   const { id } = await params;
 
-  const [project, { porHacer, enProgreso }, allPeople] = await Promise.all([
+  const [project, { porHacer }, allPeople] = await Promise.all([
     readProjectOverview(id),
     readTodos(),
     readPeople(),
@@ -87,7 +87,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
 
   if (!project) notFound();
 
-  const allTodos = [...porHacer, ...enProgreso];
+  const allTodos = porHacer;
   const projectTodos = allTodos.filter((t) =>
     t.projectArista.startsWith(`${id}/`) || t.projectArista === id
   );
@@ -296,8 +296,8 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                   }}
                 >
                   <div style={{ paddingTop: 3 }}>
-                    <div className={`cb${t.state === "progress" ? " progress" : ""}`}>
-                      <span className="cb-mark">{t.state === "progress" ? "·" : ""}</span>
+                    <div className={`cb${t.state === "done" ? " done" : ""}`}>
+                      <span className="cb-mark">{t.state === "done" ? "✓" : ""}</span>
                     </div>
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>

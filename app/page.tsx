@@ -1,5 +1,5 @@
 import { readProcessedNotes, readTodos, readPeople, readRawNotes } from "@/lib/vault";
-import { Section, StatCard, Tag, relTime, deadlineStatus } from "@/components/atoms";
+import { Section, StatCard, relTime, deadlineStatus } from "@/components/atoms";
 import { TodoCheckbox } from "@/components/todo-checkbox";
 import Link from "next/link";
 
@@ -13,7 +13,7 @@ export default async function HomePage() {
     readRawNotes(),
   ]);
 
-  const activeTodos = [...todos.porHacer, ...todos.enProgreso];
+  const activeTodos = todos.porHacer;
   const overdue = activeTodos.filter((t) => {
     if (!t.deadline) return false;
     const d = new Date(t.deadline);
@@ -29,31 +29,31 @@ export default async function HomePage() {
     return days >= 0 && days <= 7;
   });
 
-  // Show ALL active todos, sorted by: vencidos → con deadline (asc) → sin deadline
-  const nowTs = Date.now();
+  // Group active todos by projectArista. Within each group sort by deadline
+  // ASC (earliest first; sin fecha al final). Sort groups by their most
+  // urgent todo so the project with the closest deadline shows up first.
   const rank = (t: (typeof activeTodos)[number]): number => {
     if (!t.deadline) return Number.MAX_SAFE_INTEGER;
     const d = new Date(t.deadline);
     if (isNaN(d.getTime())) return Number.MAX_SAFE_INTEGER;
     return d.getTime();
   };
-  const priority = [...activeTodos].sort((a, b) => {
-    const ra = rank(a);
-    const rb = rank(b);
-    if (ra !== rb) return ra - rb;
-    // Within same deadline bucket, por hacer before en progreso (progress is "later" in the workflow)
-    if (a.state !== b.state) {
-      if (a.state === "todo") return -1;
-      if (b.state === "todo") return 1;
+
+  const groupedActive = (() => {
+    const byProject = new Map<string, typeof activeTodos>();
+    for (const t of activeTodos) {
+      const key = t.projectArista && t.projectArista !== "-" ? t.projectArista : "sin proyecto";
+      const list = byProject.get(key) ?? [];
+      list.push(t);
+      byProject.set(key, list);
     }
-    return 0;
-  });
-  // Mark overdue for styling (based on deadline < now)
-  const isOverdue = (t: (typeof activeTodos)[number]) => {
-    if (!t.deadline) return false;
-    const d = new Date(t.deadline);
-    return !isNaN(d.getTime()) && d.getTime() < nowTs;
-  };
+    for (const list of byProject.values()) {
+      list.sort((a, b) => rank(a) - rank(b));
+    }
+    return [...byProject.entries()].sort((a, b) => rank(a[1][0]) - rank(b[1][0]));
+  })();
+
+  const HOME_TODOS_PER_PROJECT = 3;
 
   const recentNotes = notes.slice(0, 4);
 
@@ -130,15 +130,22 @@ export default async function HomePage() {
         </Link>
       </div>
 
-      <Section
-        title="Para atender"
-        action={
-          <Link href="/pendientes" className="btn ghost sm" style={{ textDecoration: "none" }}>
-            Ver todos →
-          </Link>
-        }
-      >
-        {priority.length === 0 ? (
+      <Section title="Un vistazo">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
+          <StatCard label="Notas" value={notes.length} sub="procesadas" href="/notes" />
+          <StatCard
+            label="Pendientes"
+            value={activeTodos.length}
+            sub={`${overdue.length} vencidos`}
+            href="/pendientes"
+          />
+          <StatCard label="Personas" value={people.length} sub="en el roster" href="/people" />
+          <StatCard label="Proyectos" value={projectCount} sub="activos" />
+        </div>
+      </Section>
+
+      <Section title="Para atender">
+        {groupedActive.length === 0 ? (
           <div
             className="card-soft"
             style={{
@@ -151,50 +158,121 @@ export default async function HomePage() {
             Todo al día. Disfrutá.
           </div>
         ) : (
-          <div className="card" style={{ overflow: "hidden" }}>
-            {priority.map((t, i) => {
-              const ds = deadlineStatus(t.deadline);
+          <>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(2, 1fr)",
+                gap: 18,
+              }}
+            >
+            {groupedActive.map(([project, list], idx) => {
+              const visible = list.slice(0, HOME_TODOS_PER_PROJECT);
+              const overflow = list.length - visible.length;
+              const isLastOdd =
+                idx === groupedActive.length - 1 && groupedActive.length % 2 === 1;
               return (
-                <div
-                  key={t.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: 12,
-                    padding: "12px 18px",
-                    borderBottom:
-                      i < priority.length - 1 ? "1px solid var(--hair-soft)" : "none",
-                  }}
-                >
-                  <div style={{ paddingTop: 2 }}>
-                    <TodoCheckbox
-                      origin={t.origin}
-                      desc={t.desc}
-                      currentState={t.state}
-                    />
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13.5, color: "var(--ink)", lineHeight: 1.4 }}>
-                      {t.desc}
-                    </div>
-                    <div style={{ display: "flex", gap: 10, marginTop: 4, alignItems: "center" }}>
-                      <Tag>{t.projectArista}</Tag>
-                    </div>
-                  </div>
+                <div key={project} style={isLastOdd ? { gridColumn: "1 / -1" } : undefined}>
                   <div
                     style={{
                       fontSize: 11,
-                      color: ds.color,
-                      whiteSpace: "nowrap",
-                      paddingTop: 2,
+                      letterSpacing: 0.6,
+                      fontWeight: 600,
+                      color: "var(--accent)",
+                      textTransform: "uppercase",
+                      marginBottom: 6,
+                      fontFamily: "var(--font-mono, monospace)",
                     }}
                   >
-                    {ds.label}
+                    {project}
+                    <span
+                      style={{
+                        color: "var(--ink-3)",
+                        fontWeight: 400,
+                        marginLeft: 6,
+                        fontFamily: "var(--font-sans)",
+                        textTransform: "none",
+                        letterSpacing: 0,
+                      }}
+                    >
+                      {list.length}
+                    </span>
                   </div>
+                  <div className="card" style={{ overflow: "hidden" }}>
+                    {visible.map((t, i) => {
+                      const ds = deadlineStatus(t.deadline);
+                      return (
+                        <div
+                          key={t.id}
+                          style={{
+                            display: "flex",
+                            alignItems: "flex-start",
+                            gap: 12,
+                            padding: "12px 18px",
+                            borderBottom:
+                              i < visible.length - 1 ? "1px solid var(--hair-soft)" : "none",
+                          }}
+                        >
+                          <div style={{ paddingTop: 2 }}>
+                            <TodoCheckbox
+                              origin={t.origin}
+                              desc={t.desc}
+                              currentState={t.state}
+                              holdOnDone
+                            />
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div
+                              style={{
+                                fontSize: 13.5,
+                                color: t.state === "done" ? "var(--ink-3)" : "var(--ink)",
+                                lineHeight: 1.4,
+                                textDecoration: t.state === "done" ? "line-through" : "none",
+                              }}
+                            >
+                              {t.desc}
+                            </div>
+                          </div>
+                          <div
+                            style={{
+                              fontSize: 11,
+                              color: ds.color,
+                              whiteSpace: "nowrap",
+                              paddingTop: 2,
+                            }}
+                          >
+                            {ds.label}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {overflow > 0 && (
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "var(--ink-3)",
+                        marginTop: 6,
+                        paddingLeft: 18,
+                      }}
+                    >
+                      + {overflow} más en este proyecto
+                    </div>
+                  )}
                 </div>
               );
             })}
-          </div>
+            </div>
+            <div style={{ display: "flex", justifyContent: "center", marginTop: 24 }}>
+              <Link
+                href="/pendientes"
+                className="btn ghost sm"
+                style={{ textDecoration: "none" }}
+              >
+                Ver todos los pendientes →
+              </Link>
+            </div>
+          </>
         )}
       </Section>
 
@@ -273,19 +351,6 @@ export default async function HomePage() {
         )}
       </Section>
 
-      <Section title="Un vistazo">
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
-          <StatCard label="Notas" value={notes.length} sub="procesadas" href="/notes" />
-          <StatCard
-            label="Pendientes"
-            value={activeTodos.length}
-            sub={`${overdue.length} vencidos`}
-            href="/pendientes"
-          />
-          <StatCard label="Personas" value={people.length} sub="en el roster" href="/people" />
-          <StatCard label="Proyectos" value={projectCount} sub="activos" />
-        </div>
-      </Section>
     </div>
   );
 }

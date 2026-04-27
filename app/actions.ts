@@ -5,10 +5,14 @@ import path from "node:path";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { writeRawNote, appendTodo, writePersonFile, VAULT_PATH } from "@/lib/vault";
-import { updateTodoInFile } from "@/lib/todos";
+import {
+  updateTodoFieldsInFile,
+  updateTodoInFile,
+  updateTodoProjectInFile,
+} from "@/lib/todos";
 import { triggerProcessor } from "@/lib/processor";
 
-type TodoState = "todo" | "progress" | "done";
+type TodoState = "todo" | "done";
 
 interface ToggleTodoParams {
   origin: string;
@@ -20,6 +24,32 @@ interface ToggleTodoParams {
 export async function toggleTodoState(params: ToggleTodoParams): Promise<void> {
   const { origin, desc, nextState } = params;
   await updateTodoInFile({ origin, desc, nextState });
+  revalidatePath("/");
+  revalidatePath("/pendientes");
+}
+
+interface MoveTodoProjectParams {
+  origin: string;
+  desc: string;
+  newProjectArista: string;
+}
+
+export async function moveTodoProject(params: MoveTodoProjectParams): Promise<void> {
+  await updateTodoProjectInFile(params);
+  revalidatePath("/");
+  revalidatePath("/pendientes");
+}
+
+interface UpdateTodoFieldsParams {
+  origin: string;
+  desc: string;
+  newDesc: string;
+  newPeople: string;
+  newDeadline?: string;
+}
+
+export async function updateTodoFields(params: UpdateTodoFieldsParams): Promise<void> {
+  await updateTodoFieldsInFile(params);
   revalidatePath("/");
   revalidatePath("/pendientes");
 }

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { readProcessedNotes, readRawNotes } from "@/lib/vault";
 import { isProcessorRunning } from "@/lib/processor";
 import { relTime } from "@/components/atoms";
@@ -27,18 +28,35 @@ export default async function NotesPage() {
   return (
     <div style={{ padding: "48px 56px 80px", maxWidth: 960, margin: "0 auto" }}>
       {processing && <ProcessingPoller />}
-      <header style={{ marginBottom: 32 }}>
-        <h1 className="serif" style={{ fontSize: 28, fontWeight: 400 }}>
-          Notas
-        </h1>
-        <p style={{ fontSize: 13, color: "var(--ink-2)", marginTop: 6 }}>
-          {notes.length} procesadas · {rawNotes.length} sin procesar
-          {processing && (
-            <span style={{ marginLeft: 10, color: "var(--accent)" }}>
-              · ⏳ procesando…
-            </span>
-          )}
-        </p>
+      <header
+        style={{
+          marginBottom: 32,
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: 16,
+        }}
+      >
+        <div>
+          <h1 className="serif" style={{ fontSize: 28, fontWeight: 400 }}>
+            Notas
+          </h1>
+          <p style={{ fontSize: 13, color: "var(--ink-2)", marginTop: 6 }}>
+            {notes.length} procesadas · {rawNotes.length} sin procesar
+            {processing && (
+              <span style={{ marginLeft: 10, color: "var(--accent)" }}>
+                · ⏳ procesando…
+              </span>
+            )}
+          </p>
+        </div>
+        <Link
+          href="/capture/nota"
+          className="btn primary"
+          style={{ textDecoration: "none", flexShrink: 0 }}
+        >
+          + Nueva nota
+        </Link>
       </header>
 
       {rawNotes.length > 0 && (
