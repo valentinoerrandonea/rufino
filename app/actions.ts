@@ -13,6 +13,16 @@ import {
 import { triggerProcessor } from "@/lib/processor";
 import { appendLogEntry } from "@/lib/log";
 import { ignoreIssue } from "@/lib/lint";
+import {
+  applyPlan,
+  buildPlanFromBody,
+  discardPlan,
+  listKnownEntities,
+  savePendingPlan,
+  writeInbox,
+  type IngestPlan,
+  type IngestSourceKind,
+} from "@/lib/import";
 
 type TodoState = "todo" | "done";
 
@@ -311,4 +321,99 @@ export async function runLintNow(): Promise<{ ok: false; error: string }> {
     error:
       "El lint manual desde el dashboard se conecta en un release próximo. Por ahora el cron del domingo a las 22:00 corre el pass.",
   };
+}
+
+/**
+ * Submit a document for ingestion. Writes the raw payload to
+ * `vault/inbox/sources/<timestamp>-<safeName>`, builds a plan via
+ * heuristics (real Claude integration lands later), persists the plan to
+ * `_meta/ingest-pending/<id>.json`, and returns its id.
+ *
+ * For URLs we fetch server-side; the caller should pass a real URL.
+ */
+export async function submitImport(payload: {
+  kind: IngestSourceKind;
+  filename?: string;
+  body?: string;
+  url?: string;
+}): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  try {
+    let body = payload.body ?? "";
+    let filename = payload.filename ?? "untitled.md";
+
+    if (payload.kind === "url") {
+      if (!payload.url) return { ok: false, error: "URL vacía" };
+      const r = await fetch(payload.url, { redirect: "follow" });
+      if (!r.ok) return { ok: false, error: `fetch falló (${r.status})` };
+      body = await r.text();
+      // Strip HTML tags for a baseline plain-text view; real readability
+      // extraction is a v0.3 thing.
+      body = body
+        .replace(/<script[\s\S]*?<\/script>/gi, "")
+        .replace(/<style[\s\S]*?<\/style>/gi, "")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/&nbsp;/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      filename = (payload.url.split("/").pop() || "url").replace(/\W+/g, "-").slice(0, 40) + ".txt";
+    }
+
+    if (!body.trim()) return { ok: false, error: "documento vacío" };
+
+    const id = "imp-" + Date.now().toString(36);
+    const inbox = await writeInbox(filename, body);
+
+    const known = await listKnownEntities();
+    const plan: IngestPlan = buildPlanFromBody({
+      id,
+      source: { kind: payload.kind, original: filename, bytes: inbox.bytes },
+      body,
+      knownEntities: known,
+    });
+    await savePendingPlan(plan);
+
+    revalidatePath("/import");
+    return { ok: true, id };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Error al procesar el documento",
+    };
+  }
+}
+
+export async function applyImport(params: {
+  id: string;
+  selected: { create: string[]; update: string[]; triples: number[] };
+}): Promise<{ ok: true; writes: string[]; tripleCount: number } | { ok: false; error: string }> {
+  try {
+    const r = await applyPlan(params.id, params.selected);
+    await appendLogEntry({
+      op: "import",
+      slug: `_meta/ingest-applied/${params.id}.json`,
+      summary: `${r.writes.length} files writes · ${r.tripleCount} triples`,
+    });
+    revalidatePath("/import");
+    revalidatePath("/grafo");
+    revalidatePath("/actividad");
+    return { ok: true, writes: r.writes, tripleCount: r.tripleCount };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Error al aplicar el plan",
+    };
+  }
+}
+
+export async function discardImport(id: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    await discardPlan(id);
+    revalidatePath("/import");
+    return { ok: true };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Error al descartar",
+    };
+  }
 }
