@@ -60,6 +60,7 @@ export function Shell({ children }: { children: ReactNode }) {
     { label: "Preferencias", href: "/memory/preferencias" },
     { label: "Stack", href: "/memory/stack" },
     { label: "Proyectos", href: "/memory/proyectos" },
+    { label: "Conceptos", href: "/memory/conceptos" },
   ];
 
   return (
