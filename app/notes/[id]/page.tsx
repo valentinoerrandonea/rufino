@@ -6,7 +6,9 @@ import { readProcessedNotes, VAULT_PATH } from "@/lib/vault";
 import { fmtDate } from "@/components/atoms";
 import { Markdown } from "@/components/markdown";
 import { NoteEditor, NoteEditButton } from "@/components/note-editor";
+import { ConexionesSection } from "@/components/conexiones-section";
 import { DeleteButton } from "@/components/delete-button";
+import { connectionsFor } from "@/lib/triples";
 
 export const dynamic = "force-dynamic";
 
@@ -114,6 +116,7 @@ export default async function NoteDetailPage({
   const noteIds = new Set(notes.map((n) => n.id));
 
   const tagGroups = groupTagsByAxis(note.tags);
+  const connections = await connectionsFor(id);
 
   // Parse augmentation sections from note body
   // The body contains the full markdown including the title
@@ -261,6 +264,12 @@ export default async function NoteDetailPage({
       </header>
 
       <hr className="hr" style={{ marginBottom: 36 }} />
+
+      <ConexionesSection
+        outgoing={connections.outgoing}
+        incoming={connections.incoming}
+        unresolvedOut={connections.unresolvedOut}
+      />
 
       {/* Original content */}
       {originalContent && (

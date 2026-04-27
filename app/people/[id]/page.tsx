@@ -6,7 +6,9 @@ import { notFound } from "next/navigation";
 import { RUFINO_PATH, VAULT_PATH } from "@/lib/vault";
 import { MemoryMarkdown } from "@/components/memory-markdown";
 import { PersonEditor, PersonEditButton } from "@/components/person-editor";
+import { ConexionesSection } from "@/components/conexiones-section";
 import { DeleteButton } from "@/components/delete-button";
+import { connectionsFor } from "@/lib/triples";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +38,7 @@ export default async function PersonDetailPage({ params }: PageProps) {
   };
 
   const personFilePath = path.join("rufino", "_people", `${id}.md`);
+  const connections = await connectionsFor(id);
 
   return (
     <div style={{ padding: "48px 72px 80px", maxWidth: 960, margin: "0 auto" }}>
@@ -89,6 +92,12 @@ export default async function PersonDetailPage({ params }: PageProps) {
             {name}
           </h1>
         </header>
+
+        <ConexionesSection
+          outgoing={connections.outgoing}
+          incoming={connections.incoming}
+          unresolvedOut={connections.unresolvedOut}
+        />
 
         {/* Full markdown content of the person file */}
         <MemoryMarkdown content={content} meta={frontmatter} stripTitle />

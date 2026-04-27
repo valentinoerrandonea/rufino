@@ -3,6 +3,7 @@ import path from "node:path";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { readConcept } from "@/lib/concepts";
+import { connectionsFor } from "@/lib/triples";
 import { VAULT_PATH } from "@/lib/vault";
 import { ConceptEditor, ConceptEditButton } from "@/components/concept-editor";
 import { ConexionesSection } from "@/components/conexiones-section";
@@ -44,6 +45,7 @@ export default async function ConceptoDetailPage({ params }: PageProps) {
 
   const filePath = path.join(VAULT_PATH, "conceptos", `${id}.md`);
   const rawFile = await fs.readFile(filePath, "utf-8");
+  const connections = await connectionsFor(id);
 
   const conceptFilePath = path.join("conceptos", `${id}.md`);
 
@@ -167,7 +169,11 @@ export default async function ConceptoDetailPage({ params }: PageProps) {
           </div>
         </header>
 
-        <ConexionesSection />
+        <ConexionesSection
+          outgoing={connections.outgoing}
+          incoming={connections.incoming}
+          unresolvedOut={connections.unresolvedOut}
+        />
 
         <section style={{ marginBottom: 36 }}>
           <h2
