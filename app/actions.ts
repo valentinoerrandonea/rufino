@@ -12,6 +12,7 @@ import {
 } from "@/lib/todos";
 import { triggerProcessor } from "@/lib/processor";
 import { appendLogEntry } from "@/lib/log";
+import { ignoreIssue } from "@/lib/lint";
 
 type TodoState = "todo" | "done";
 
@@ -202,4 +203,112 @@ export async function createPerson(formData: FormData): Promise<void> {
   revalidatePath("/");
   revalidatePath("/people");
   redirect("/people");
+}
+
+/**
+ * Apply a lint action — ignore the issue, create a stub concept page, etc.
+ *
+ * Right now we wire only the safe-and-easy actions (ignore, create_concept_page,
+ * create_person_page); link_notes / mark_replacement raise an error with a
+ * "no implementado" message. The lint corrida can keep flagging them; they
+ * just won't auto-resolve from the UI yet.
+ */
+export async function applyLintAction(params: {
+  issueId: string;
+  kind: string;
+  actionParams?: Record<string, unknown>;
+  redirectTo?: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { issueId, kind, actionParams, redirectTo } = params;
+
+  if (kind === "ignore") {
+    await ignoreIssue(issueId);
+    revalidatePath("/salud");
+    return { ok: true };
+  }
+
+  if (kind === "create_concept_page") {
+    const id = String(actionParams?.id ?? "").trim();
+    if (!id) return { ok: false, error: "missing concept id" };
+    const dest = path.resolve(VAULT_PATH, "conceptos", `${id}.md`);
+    const rel = path.relative(VAULT_PATH, dest);
+    if (rel.startsWith("..") || path.isAbsolute(rel)) {
+      return { ok: false, error: "invalid path" };
+    }
+    try {
+      await fs.access(dest);
+      // already exists — just ignore the issue
+      await ignoreIssue(issueId);
+      revalidatePath("/salud");
+      return { ok: true };
+    } catch {
+      /* missing, will create */
+    }
+    const today = new Date().toISOString().slice(0, 10);
+    const mentions = Number(actionParams?.mentions ?? 0);
+    const stub =
+      `---\n` +
+      `tags:\n  - tipo/concepto\n  - concepto/${id}\n` +
+      `created: ${today}\nupdated: ${today}\n` +
+      `mentions: ${mentions}\n---\n\n` +
+      `# ${id}\n\n` +
+      `## Definición\n_(stub auto-creado por lint pass · 2026-04-27)_\n\n` +
+      `## Notas adicionales\n\n\n## Sources\n_(auto-managed)_\n`;
+    await fs.mkdir(path.dirname(dest), { recursive: true });
+    await fs.writeFile(dest, stub);
+    await ignoreIssue(issueId);
+    revalidatePath("/salud");
+    revalidatePath("/memory/conceptos");
+    if (redirectTo) redirect(redirectTo);
+    return { ok: true };
+  }
+
+  if (kind === "create_person_page") {
+    const id = String(actionParams?.id ?? "").trim();
+    const name = String(actionParams?.name ?? id).trim();
+    if (!id) return { ok: false, error: "missing person id" };
+    const dest = path.resolve(VAULT_PATH, "rufino", "_people", `${id}.md`);
+    const rel = path.relative(VAULT_PATH, dest);
+    if (rel.startsWith("..") || path.isAbsolute(rel)) {
+      return { ok: false, error: "invalid path" };
+    }
+    try {
+      await fs.access(dest);
+      await ignoreIssue(issueId);
+      revalidatePath("/salud");
+      return { ok: true };
+    } catch {
+      /* missing */
+    }
+    const today = new Date().toISOString().slice(0, 10);
+    const stub =
+      `---\n` +
+      `tags:\n  - tipo/persona\n  - persona/${id}\n` +
+      `created: ${today}\nupdated: ${today}\n---\n\n` +
+      `# ${name}\n\n## Contexto\n\n\n## Relación\n\n\n## Proyectos\n\n\n## Menciones en notas\n_(auto-managed)_\n`;
+    await fs.mkdir(path.dirname(dest), { recursive: true });
+    await fs.writeFile(dest, stub);
+    await ignoreIssue(issueId);
+    revalidatePath("/salud");
+    revalidatePath("/people");
+    return { ok: true };
+  }
+
+  return {
+    ok: false,
+    error: `Acción "${kind}" todavía no implementada — usá la opción de ignorar mientras tanto.`,
+  };
+}
+
+/**
+ * Trigger a lint pass via Claude Code. v0.2 stub: returns a not-implemented
+ * message. Real streaming impl lands in a follow-up release; the cron-based
+ * weekly pass is the production path for now.
+ */
+export async function runLintNow(): Promise<{ ok: false; error: string }> {
+  return {
+    ok: false,
+    error:
+      "El lint manual desde el dashboard se conecta en un release próximo. Por ahora el cron del domingo a las 22:00 corre el pass.",
+  };
 }
