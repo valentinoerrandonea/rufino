@@ -50,6 +50,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const rufinoNav = [
     { label: "Inicio", href: "/" },
     { label: "Notas", href: "/notes" },
+    { label: "Importar", href: "/import" },
     { label: "Pendientes", href: "/pendientes" },
     { label: "Actividad", href: "/actividad" },
     { label: "Personas", href: "/people" },
