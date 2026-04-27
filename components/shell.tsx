@@ -163,6 +163,10 @@ export function Shell({ children }: { children: ReactNode }) {
           Configuración
         </NavItem>
 
+        <NavItem href="/salud" active={isActive("/salud")}>
+          Salud
+        </NavItem>
+
         <button
           onClick={toggle}
           style={{
