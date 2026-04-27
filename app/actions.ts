@@ -11,6 +11,7 @@ import {
   updateTodoProjectInFile,
 } from "@/lib/todos";
 import { triggerProcessor } from "@/lib/processor";
+import { appendLogEntry } from "@/lib/log";
 
 type TodoState = "todo" | "done";
 
@@ -129,6 +130,7 @@ export async function saveFileContent(params: {
   }
 
   await fs.writeFile(target, content, "utf-8");
+  await appendLogEntry({ op: "edit", slug: relativePath });
   for (const p of revalidate) revalidatePath(p);
 }
 
@@ -165,6 +167,12 @@ export async function trashItem(params: {
   const dest = path.join(VAULT_PATH, "_trash", stamp, rel);
   await fs.mkdir(path.dirname(dest), { recursive: true });
   await fs.rename(target, dest);
+
+  await appendLogEntry({
+    op: "delete",
+    slug: relativePath,
+    summary: `movido a _trash/${path.relative(VAULT_PATH, path.dirname(dest))}/`,
+  });
 
   for (const p of revalidate) revalidatePath(p);
   if (redirectTo) redirect(redirectTo);
