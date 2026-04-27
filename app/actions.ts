@@ -10,7 +10,7 @@ import {
   updateTodoInFile,
   updateTodoProjectInFile,
 } from "@/lib/todos";
-import { triggerProcessor, processFile } from "@/lib/processor";
+import { triggerProcessor, processFile, planImport } from "@/lib/processor";
 import { appendLogEntry } from "@/lib/log";
 import { ignoreIssue } from "@/lib/lint";
 import {
@@ -376,13 +376,32 @@ export async function submitImport(payload: {
     const inbox = await writeInbox(filename, body);
 
     const known = await listKnownEntities();
-    const plan: IngestPlan = buildPlanFromBody({
-      id,
-      source: { kind: payload.kind, original: filename, bytes: inbox.bytes },
-      body,
-      knownEntities: known,
-    });
+    // The heuristic plan ships immediately as a usable fallback. Mark
+    // planStatus: "generating" so the review UI shows "generando plan…"
+    // and polls until the LLM upgrade lands.
+    const plan: IngestPlan = {
+      ...buildPlanFromBody({
+        id,
+        source: { kind: payload.kind, original: filename, bytes: inbox.bytes },
+        body,
+        knownEntities: known,
+      }),
+      planStatus: "generating",
+      inboxPath: path.relative(VAULT_PATH, inbox.inboxPath),
+    };
     await savePendingPlan(plan);
+
+    // Spawn the LLM-driven plan generator. It overwrites the JSON file
+    // with an upgraded plan (smarter slugs, typed triples, update
+    // suggestions) and flips planStatus to "ready" — or "failed" with an
+    // error message that the UI can show.
+    const planJsonPath = path.join(
+      VAULT_PATH,
+      "_meta",
+      "ingest-pending",
+      `${id}.json`,
+    );
+    planImport(inbox.inboxPath, planJsonPath);
 
     revalidatePath("/import");
     return { ok: true, id };

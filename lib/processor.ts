@@ -16,6 +16,12 @@ const SINGLE_FILE_SCRIPT = path.join(
   "scripts",
   "rufino-process-single.sh"
 );
+const IMPORT_PLAN_SCRIPT = path.join(
+  os.homedir(),
+  ".claude",
+  "scripts",
+  "rufino-import-plan.sh"
+);
 const LOCKFILE = path.join(RUFINO_PATH, ".processing.lock");
 
 /**
@@ -93,6 +99,40 @@ export function processFile(absoluteOrVaultRelativePath: string): void {
         process.env.RUFINO_VAULT_PATH || "/Users/val/Files/vaultlentino",
     },
   });
+
+  child.unref();
+}
+
+/**
+ * Generate an import plan using Claude Code in the background.
+ * Fire-and-forget — the plan JSON is written by the script to the same
+ * path it received, with planStatus flipped from "generating" to "ready".
+ *
+ * Use this from submitImport after writing the heuristic draft plan.
+ * The dashboard's /import/[id] page polls planStatus and shows a
+ * "generando plan…" indicator while it's not yet "ready".
+ */
+export function planImport(inboxFilePath: string, planJsonPath: string): void {
+  if (!fs.existsSync(IMPORT_PLAN_SCRIPT)) {
+    console.error(
+      `[rufino-processor] import plan script not found at ${IMPORT_PLAN_SCRIPT}`,
+    );
+    return;
+  }
+
+  const child = spawn(
+    "/bin/bash",
+    [IMPORT_PLAN_SCRIPT, inboxFilePath, planJsonPath],
+    {
+      detached: true,
+      stdio: "ignore",
+      env: {
+        ...process.env,
+        RUFINO_VAULT_PATH:
+          process.env.RUFINO_VAULT_PATH || "/Users/val/Files/vaultlentino",
+      },
+    },
+  );
 
   child.unref();
 }
