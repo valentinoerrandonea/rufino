@@ -1,12 +1,19 @@
 {
-  "name": "rufino-dashboard",
+  "name": "rufino",
+  "productName": "Rufino",
   "version": "0.1.0",
+  "description": "Tu segundo cerebro, sin fricción.",
   "private": true,
+  "main": "dist-electron/main.js",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "electron:build": "tsc -p tsconfig.electron.json",
+    "electron:postbuild": "node scripts/copy-next-runtime.js",
+    "electron:dev": "npm run electron:build && cross-env ELECTRON_DEV=1 electron .",
+    "electron:dist": "npm run build && npm run electron:build && npm run electron:postbuild && electron-builder --mac --publish=never"
   },
   "dependencies": {
     "gray-matter": "^4.0.3",
@@ -19,9 +26,58 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "cross-env": "^7.0.3",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "build": {
+    "appId": "com.rufino.app",
+    "productName": "Rufino",
+    "asar": true,
+    "directories": {
+      "output": "release",
+      "buildResources": "assets"
+    },
+    "files": [
+      "dist-electron/**/*",
+      ".next/standalone/**/*",
+      ".next/static/**/*",
+      "public/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/claude-config",
+        "to": "claude-config"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        { "target": "dmg", "arch": ["arm64", "x64"] },
+        { "target": "zip", "arch": ["arm64", "x64"] }
+      ],
+      "icon": "assets/icon.icns",
+      "identity": null,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "extendInfo": {
+        "LSUIElement": false,
+        "NSHighResolutionCapable": true
+      }
+    },
+    "dmg": {
+      "title": "Rufino ${version}",
+      "icon": "assets/icon.icns"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "valentinoerrandonea",
+      "repo": "rufino"
+    }
   }
 }

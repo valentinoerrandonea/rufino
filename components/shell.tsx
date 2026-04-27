@@ -11,9 +11,11 @@ export function Shell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { theme, toggle } = useTheme();
   const [tweaksOpen, setTweaksOpen] = useState(false);
+  const isOnboarding = pathname.startsWith("/onboarding");
 
-  // Global keyboard shortcuts
+  // Global keyboard shortcuts (disabled during onboarding)
   useEffect(() => {
+    if (isOnboarding) return;
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
@@ -38,7 +40,9 @@ export function Shell({ children }: { children: ReactNode }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [router]);
+  }, [router, isOnboarding]);
+
+  if (isOnboarding) return <>{children}</>;
 
   const isActive = (path: string) =>
     path === "/" ? pathname === "/" : pathname.startsWith(path);
@@ -83,25 +87,29 @@ export function Shell({ children }: { children: ReactNode }) {
             style={{
               width: 28,
               height: 28,
-              borderRadius: 8,
-              background: "var(--accent)",
-              color: "#fff",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontFamily: "var(--font-serif)",
-              fontWeight: 500,
-              fontSize: 16,
-              fontStyle: "italic",
+              color: "var(--accent)",
             }}
           >
-            R
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z" />
+              <path d="M16 8 2 22" />
+              <path d="M17.5 15H9" />
+            </svg>
           </div>
-          <div>
-            <div className="serif" style={{ fontSize: 17, fontWeight: 500, lineHeight: 1 }}>
-              Rufino
-            </div>
-            <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>segundo cerebro</div>
+          <div className="serif" style={{ fontSize: 18, fontWeight: 500, lineHeight: 1 }}>
+            Rufino
           </div>
         </div>
 

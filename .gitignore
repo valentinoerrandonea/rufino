@@ -39,3 +39,14 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# electron
+/dist-electron/
+/release/
+/logs/
+/assets/icon-1024.png
+/assets/icon.iconset/
+
+# editor
+.idea/
+.vscode/

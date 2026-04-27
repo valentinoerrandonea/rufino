@@ -1,0 +1,124 @@
+/* Onboarding-only styles: backdrop wallpaper + animations */
+
+.onb-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  transition: background 0.3s;
+  background: radial-gradient(
+    ellipse at 30% 20%,
+    #d8c8b0 0%,
+    #b09877 40%,
+    #6f5d44 100%
+  );
+}
+:root[data-theme="dark"] .onb-page {
+  background: radial-gradient(
+    ellipse at 30% 20%,
+    #3d342a 0%,
+    #251f1a 50%,
+    #100d0a 100%
+  );
+}
+
+@keyframes onb-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes onb-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.onb-fade {
+  animation: onb-fade 0.32s ease-out both;
+}
+.onb-fade-up {
+  animation: onb-fade-up 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes feather-fall {
+  0% {
+    transform: translateX(-50%) translateY(-40px) rotate(-12deg);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  50% {
+    transform: translateX(-46%) translateY(20px) rotate(8deg);
+  }
+  80% {
+    transform: translateX(-52%) translateY(50px) rotate(-4deg);
+  }
+  100% {
+    transform: translateX(-50%) translateY(64px) rotate(2deg);
+    opacity: 1;
+  }
+}
+.feather-fall {
+  animation: feather-fall 1.4s cubic-bezier(0.4, 0.05, 0.4, 1) both;
+}
+
+@keyframes feather-shadow {
+  0% {
+    transform: translateX(-50%) scaleX(0.2);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(-50%) scaleX(1);
+    opacity: 0.35;
+  }
+}
+.feather-shadow {
+  animation: feather-shadow 1.4s cubic-bezier(0.4, 0.05, 0.4, 1) both;
+}
+
+@keyframes feather-sway {
+  0%,
+  100% {
+    transform: rotate(-6deg);
+  }
+  50% {
+    transform: rotate(6deg);
+  }
+}
+
+@keyframes onb-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.onb-spinner {
+  animation: onb-spin 0.9s linear infinite;
+}
+
+@keyframes onb-blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  50.01%,
+  100% {
+    opacity: 0;
+  }
+}
+.onb-blink {
+  animation: onb-blink 1s steps(1) infinite;
+}
+
+.onb-back-btn:hover {
+  color: var(--ink-2) !important;
+  background: var(--surface-2) !important;
+}

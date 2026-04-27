@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // standalone output produces .next/standalone/server.js that Electron embeds.
+  output: "standalone",
 };
 
 export default nextConfig;

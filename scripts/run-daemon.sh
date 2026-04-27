@@ -9,7 +9,8 @@ export NODE_ENV=production
 export PORT=3737
 export RUFINO_VAULT_PATH="${RUFINO_VAULT_PATH:-/Users/val/Files/vaultlentino}"
 
-LOGFILE="$HOME/rufino-dashboard.log"
+LOGFILE="$(pwd)/logs/rufino-dashboard.log"
+mkdir -p "$(dirname "$LOGFILE")"
 echo "=== Rufino dashboard starting: $(date) ===" >> "$LOGFILE"
 
 exec npm run start >> "$LOGFILE" 2>&1
