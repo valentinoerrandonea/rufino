@@ -1,75 +1,32 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { readProjectOverview } from "@/lib/projects";
-import { readTodos, readPeople } from "@/lib/vault";
-import { Section, Tag, deadlineStatus } from "@/components/atoms";
-import type { ReactNode } from "react";
+import { readProjectOverview, type EntryPreview } from "@/lib/projects";
+import { AvatarStack } from "@/components/avatar-stack";
+import { DeleteButton } from "@/components/delete-button";
 
 export const dynamic = "force-dynamic";
 
-// Minimal inline markdown-to-JSX renderer (keeps under 100 lines)
-function renderMarkdown(md: string): ReactNode {
-  const lines = md.split("\n");
-  const nodes: ReactNode[] = [];
-  let i = 0;
-
-  while (i < lines.length) {
-    const line = lines[i];
-
-    // Blank line
-    if (!line.trim()) { i++; continue; }
-
-    // Headings
-    const h3 = line.match(/^###\s+(.+)/);
-    if (h3) { nodes.push(<h3 key={i} className="serif" style={{ fontSize: 15, fontWeight: 500, marginTop: 18, marginBottom: 6 }}>{h3[1]}</h3>); i++; continue; }
-    const h2 = line.match(/^##\s+(.+)/);
-    if (h2) { nodes.push(<h2 key={i} className="serif" style={{ fontSize: 17, fontWeight: 500, marginTop: 24, marginBottom: 8 }}>{h2[1]}</h2>); i++; continue; }
-    const h1 = line.match(/^#\s+(.+)/);
-    if (h1) { nodes.push(<h1 key={i} className="serif" style={{ fontSize: 21, fontWeight: 500, marginTop: 28, marginBottom: 10 }}>{h1[1]}</h1>); i++; continue; }
-
-    // Bullet list — collect consecutive items
-    if (line.match(/^[\s]*[-*]\s+/)) {
-      const items: string[] = [];
-      while (i < lines.length && lines[i].match(/^[\s]*[-*]\s+/)) {
-        items.push(lines[i].replace(/^[\s]*[-*]\s+/, ""));
-        i++;
-      }
-      nodes.push(
-        <ul key={`ul-${i}`} style={{ margin: "6px 0 10px", paddingLeft: 20, listStyleType: "disc" }}>
-          {items.map((item, j) => (
-            <li key={j} style={{ fontSize: 13, color: "var(--ink-2)", lineHeight: 1.6, marginBottom: 2 }}>
-              {renderInline(item)}
-            </li>
-          ))}
-        </ul>
-      );
-      continue;
-    }
-
-    // Paragraph
-    nodes.push(
-      <p key={i} style={{ fontSize: 13, color: "var(--ink-2)", lineHeight: 1.7, margin: "0 0 10px" }}>
-        {renderInline(line)}
-      </p>
-    );
-    i++;
-  }
-
-  return <>{nodes}</>;
-}
-
-function renderInline(text: string): ReactNode {
-  // Bold: **text**
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
-  if (parts.length === 1) return text;
-  return (
-    <>
-      {parts.map((part, i) => {
-        const bold = part.match(/^\*\*(.+)\*\*$/);
-        return bold ? <strong key={i} style={{ fontWeight: 600, color: "var(--ink)" }}>{bold[1]}</strong> : <span key={i}>{part}</span>;
-      })}
-    </>
-  );
+function relTimeLong(iso: string | null): string {
+  if (!iso) return "sin actividad";
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(iso);
+  const target = dateOnly
+    ? (() => {
+        const [y, m, d] = iso.split("-").map(Number);
+        return new Date(y, m - 1, d);
+      })()
+    : new Date(iso);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const days = Math.round((today.getTime() - target.getTime()) / 86400000);
+  if (days <= 0) return "hoy";
+  if (days === 1) return "ayer";
+  if (days < 7) return `hace ${days} días`;
+  if (days < 14) return "hace 1 semana";
+  if (days < 30) return `hace ${Math.floor(days / 7)} semanas`;
+  if (days < 60) return "hace 1 mes";
+  if (days < 365) return `hace ${Math.floor(days / 30)} meses`;
+  const years = Math.floor(days / 365);
+  return `hace ${years} año${years > 1 ? "s" : ""}`;
 }
 
 type PageProps = {
@@ -78,177 +35,172 @@ type PageProps = {
 
 export default async function ProjectDetailPage({ params }: PageProps) {
   const { id } = await params;
-
-  const [project, { porHacer }, allPeople] = await Promise.all([
-    readProjectOverview(id),
-    readTodos(),
-    readPeople(),
-  ]);
-
+  const project = await readProjectOverview(id);
   if (!project) notFound();
 
-  const allTodos = porHacer;
-  const projectTodos = allTodos.filter((t) =>
-    t.projectArista.startsWith(`${id}/`) || t.projectArista === id
-  );
-
-  const involvedPeople = allPeople.filter((p) => p.projects.includes(id));
-
   return (
-    <div style={{ padding: "48px 56px 80px", maxWidth: 860, margin: "0 auto" }}>
-      <div style={{ marginBottom: 32 }}>
+    <div style={{ padding: "48px 56px 80px", maxWidth: 880, margin: "0 auto" }}>
+      <div
+        style={{
+          marginBottom: 16,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 10,
+        }}
+      >
         <Link
           href="/projects"
           className="btn ghost sm"
-          style={{ textDecoration: "none", display: "inline-flex" }}
+          style={{
+            textDecoration: "none",
+            display: "inline-flex",
+            marginLeft: -8,
+          }}
         >
-          ← Volver a proyectos
+          ← Proyectos
         </Link>
+        <DeleteButton
+          relativePath={`proyectos/${id}`}
+          itemLabel={`el proyecto ${project.name}`}
+          redirectTo="/projects"
+          revalidate={["/projects", "/"]}
+        />
       </div>
 
-      {/* Header */}
-      <header style={{ marginBottom: 36 }}>
-        <span
+      <header
+        style={{
+          marginBottom: 28,
+          paddingBottom: 22,
+          borderBottom: "1px solid var(--hair)",
+        }}
+      >
+        <div
           style={{
+            fontFamily: "var(--font-mono)",
             fontSize: 11,
             color: "var(--accent)",
-            fontFamily: "var(--font-mono, monospace)",
-            display: "block",
+            letterSpacing: 0.6,
+            textTransform: "uppercase",
+            fontWeight: 600,
             marginBottom: 8,
           }}
         >
-          {id}
-        </span>
-        <h1 className="serif" style={{ fontSize: 30, fontWeight: 400 }}>
+          Memoria · Proyecto
+        </div>
+        <h1
+          className="serif"
+          style={{ fontSize: 36, fontWeight: 400, lineHeight: 1.1, marginBottom: 6 }}
+        >
           {project.name}
         </h1>
-        {project.description && (
-          <p style={{ fontSize: 14, color: "var(--ink-2)", marginTop: 10, lineHeight: 1.6 }}>
-            {project.description}
+        {project.subtitle && (
+          <p
+            style={{
+              fontSize: 16,
+              color: "var(--ink-2)",
+              margin: 0,
+              fontStyle: "italic",
+              fontFamily: "var(--font-serif), Georgia, serif",
+            }}
+          >
+            {project.subtitle}
           </p>
         )}
+        {project.blurb && (
+          <p
+            style={{
+              fontSize: 14,
+              color: "var(--ink-2)",
+              marginTop: 14,
+              lineHeight: 1.55,
+              maxWidth: 640,
+            }}
+          >
+            {project.blurb}
+          </p>
+        )}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 14,
+            marginTop: 18,
+            fontSize: 12,
+            color: "var(--ink-3)",
+            flexWrap: "wrap",
+          }}
+        >
+          {project.peopleInitials.length > 0 && (
+            <>
+              <AvatarStack people={project.peopleInitials} size={22} max={4} />
+              <span style={{ color: "var(--hair)" }}>·</span>
+            </>
+          )}
+          <span>último movimiento {relTimeLong(project.lastActivity)}</span>
+          {project.pendientesCount > 0 && (
+            <>
+              <span style={{ color: "var(--hair)" }}>·</span>
+              <span>
+                {project.pendientesCount} pendiente
+                {project.pendientesCount === 1 ? "" : "s"}
+              </span>
+            </>
+          )}
+        </div>
       </header>
 
-      {/* Overview content */}
-      <Section title="Overview">
-        <div
-          className="card-soft"
-          style={{ padding: "20px 24px" }}
-        >
-          {renderMarkdown(project.overviewContent)}
-        </div>
-      </Section>
+      <EntrySection
+        title="Decisiones"
+        emptyText="Todavía no hay decisiones registradas en este proyecto."
+        entries={project.decisionEntries}
+        bodyStyle={{
+          fontSize: 14,
+          lineHeight: 1.55,
+          color: "var(--ink)",
+        }}
+      />
 
-      {/* Personas */}
-      {involvedPeople.length > 0 && (
-        <Section title="Personas">
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            {involvedPeople.map((p) => (
-              <Link
-                key={p.id}
-                href={`/people/${p.id}`}
-                style={{ textDecoration: "none" }}
-              >
-                <div
-                  className="card hoverable"
-                  style={{
-                    padding: "8px 14px",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                  }}
-                >
-                  <div className="avatar" style={{ width: 28, height: 28, fontSize: 12 }}>
-                    {p.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 500, color: "var(--ink)" }}>
-                      {p.name}
-                    </div>
-                    {p.rol && (
-                      <div style={{ fontSize: 11, color: "var(--ink-3)" }}>{p.rol}</div>
-                    )}
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </Section>
-      )}
+      <EntrySection
+        title="Aprendizajes"
+        emptyText="Todavía no hay aprendizajes registrados."
+        entries={project.lessonEntries}
+        bodyStyle={{
+          fontFamily: "var(--font-serif), Georgia, serif",
+          fontSize: 15,
+          fontStyle: "italic",
+          lineHeight: 1.55,
+          color: "var(--ink)",
+        }}
+        wrapText={(t) => `“${t}”`}
+        marginTop={36}
+      />
 
-      {/* Decisiones and Aprendizajes */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 32 }}>
-        <div>
-          <h2 className="serif" style={{ fontSize: 16, fontWeight: 500, marginBottom: 10 }}>
-            Decisiones{" "}
-            <span style={{ fontSize: 12, color: "var(--ink-3)", fontFamily: "inherit" }}>
-              ({project.decisiones.length})
-            </span>
-          </h2>
-          {project.decisiones.length === 0 ? (
-            <div className="card-soft" style={{ padding: "12px 16px", fontSize: 12, color: "var(--ink-3)" }}>
-              Ninguna aún.
-            </div>
-          ) : (
-            <div className="card" style={{ overflow: "hidden" }}>
-              {project.decisiones.map((d, i) => (
-                <div
-                  key={d}
-                  style={{
-                    padding: "10px 16px",
-                    fontSize: 12.5,
-                    color: "var(--ink-2)",
-                    borderBottom: i < project.decisiones.length - 1 ? "1px solid var(--hair-soft)" : "none",
-                  }}
-                >
-                  {d}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div>
-          <h2 className="serif" style={{ fontSize: 16, fontWeight: 500, marginBottom: 10 }}>
-            Aprendizajes{" "}
-            <span style={{ fontSize: 12, color: "var(--ink-3)", fontFamily: "inherit" }}>
-              ({project.aprendizajes.length})
-            </span>
-          </h2>
-          {project.aprendizajes.length === 0 ? (
-            <div className="card-soft" style={{ padding: "12px 16px", fontSize: 12, color: "var(--ink-3)" }}>
-              Ninguno aún.
-            </div>
-          ) : (
-            <div className="card" style={{ overflow: "hidden" }}>
-              {project.aprendizajes.map((a, i) => (
-                <div
-                  key={a}
-                  style={{
-                    padding: "10px 16px",
-                    fontSize: 12.5,
-                    color: "var(--ink-2)",
-                    borderBottom: i < project.aprendizajes.length - 1 ? "1px solid var(--hair-soft)" : "none",
-                  }}
-                >
-                  {a}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Notas procesadas */}
       {project.noteIds.length > 0 && (
-        <Section
-          title="Notas procesadas"
-          action={
-            <span style={{ fontSize: 12, color: "var(--ink-3)" }}>
-              {project.noteIds.length} nota{project.noteIds.length !== 1 ? "s" : ""}
+        <section style={{ marginTop: 36 }}>
+          <h2
+            className="serif"
+            style={{
+              fontSize: 22,
+              fontWeight: 500,
+              marginBottom: 14,
+              display: "flex",
+              alignItems: "baseline",
+              gap: 10,
+            }}
+          >
+            Notas
+            <span
+              style={{
+                fontSize: 12,
+                color: "var(--ink-3)",
+                fontFamily: "var(--font-sans)",
+                fontWeight: 400,
+              }}
+            >
+              {project.noteIds.length}
             </span>
-          }
-        >
+          </h2>
           <div className="card" style={{ overflow: "hidden" }}>
             {project.noteIds.map((noteId, i) => (
               <Link
@@ -257,66 +209,107 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                 className="hoverable"
                 style={{
                   display: "block",
-                  padding: "11px 18px",
+                  padding: "12px 22px",
                   fontSize: 13,
                   color: "var(--ink-2)",
                   textDecoration: "none",
-                  borderBottom: i < project.noteIds.length - 1 ? "1px solid var(--hair-soft)" : "none",
+                  borderBottom:
+                    i < project.noteIds.length - 1
+                      ? "1px solid var(--hair-soft)"
+                      : "none",
                 }}
               >
                 {noteId}
               </Link>
             ))}
           </div>
-        </Section>
-      )}
-
-      {/* Pendientes */}
-      {projectTodos.length > 0 && (
-        <Section
-          title="Pendientes"
-          action={
-            <Link href="/pendientes" className="btn ghost sm" style={{ textDecoration: "none" }}>
-              Ver todos →
-            </Link>
-          }
-        >
-          <div className="card" style={{ overflow: "hidden" }}>
-            {projectTodos.map((t, i) => {
-              const ds = deadlineStatus(t.deadline);
-              return (
-                <div
-                  key={t.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: 12,
-                    padding: "12px 18px",
-                    borderBottom: i < projectTodos.length - 1 ? "1px solid var(--hair-soft)" : "none",
-                  }}
-                >
-                  <div style={{ paddingTop: 3 }}>
-                    <div className={`cb${t.state === "done" ? " done" : ""}`}>
-                      <span className="cb-mark">{t.state === "done" ? "✓" : ""}</span>
-                    </div>
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, color: "var(--ink)", lineHeight: 1.4 }}>
-                      {t.desc}
-                    </div>
-                    <div style={{ marginTop: 4 }}>
-                      <Tag>{t.projectArista}</Tag>
-                    </div>
-                  </div>
-                  <div style={{ fontSize: 11, color: ds.color, whiteSpace: "nowrap", paddingTop: 2 }}>
-                    {ds.label}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </Section>
+        </section>
       )}
     </div>
+  );
+}
+
+interface EntrySectionProps {
+  title: string;
+  emptyText: string;
+  entries: EntryPreview[];
+  bodyStyle: React.CSSProperties;
+  wrapText?: (t: string) => string;
+  marginTop?: number;
+}
+
+function EntrySection({
+  title,
+  emptyText,
+  entries,
+  bodyStyle,
+  wrapText,
+  marginTop,
+}: EntrySectionProps) {
+  return (
+    <section style={{ marginBottom: 36, marginTop }}>
+      <h2
+        className="serif"
+        style={{
+          fontSize: 22,
+          fontWeight: 500,
+          marginBottom: 14,
+          display: "flex",
+          alignItems: "baseline",
+          gap: 10,
+        }}
+      >
+        {title}
+        <span
+          style={{
+            fontSize: 12,
+            color: "var(--ink-3)",
+            fontFamily: "var(--font-sans)",
+            fontWeight: 400,
+          }}
+        >
+          {entries.length}
+        </span>
+      </h2>
+      {entries.length === 0 ? (
+        <div
+          style={{
+            padding: "18px 22px",
+            border: "1px dashed var(--hair)",
+            borderRadius: 8,
+            fontSize: 13,
+            color: "var(--ink-3)",
+          }}
+        >
+          {emptyText}
+        </div>
+      ) : (
+        <div className="card" style={{ overflow: "hidden" }}>
+          {entries.map((e, i) => (
+            <div
+              key={e.id}
+              style={{
+                padding: "16px 22px",
+                borderBottom:
+                  i < entries.length - 1
+                    ? "1px solid var(--hair-soft)"
+                    : "none",
+              }}
+            >
+              <div style={bodyStyle}>{wrapText ? wrapText(e.title) : e.title}</div>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "var(--ink-3)",
+                  marginTop: 6,
+                }}
+              >
+                {relTimeLong(e.when)}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }

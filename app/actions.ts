@@ -132,6 +132,44 @@ export async function saveFileContent(params: {
   for (const p of revalidate) revalidatePath(p);
 }
 
+/**
+ * Move a file or directory inside the vault to `_trash/<timestamp>/<original-path>`.
+ *
+ * Soft-delete by design: we never `rm -rf` inside the vault. If Val ever needs
+ * something back she can pull it from `_trash/`. To purge for real she empties
+ * `_trash/` manually.
+ */
+export async function trashItem(params: {
+  relativePath: string;
+  revalidate?: string[];
+  redirectTo?: string;
+}): Promise<void> {
+  const { relativePath, revalidate = [], redirectTo } = params;
+
+  const target = path.resolve(VAULT_PATH, relativePath);
+  const rel = path.relative(VAULT_PATH, target);
+  if (rel.startsWith("..") || path.isAbsolute(rel)) {
+    throw new Error("Invalid path: outside vault");
+  }
+  if (rel === "" || rel === "_trash" || rel.startsWith("_trash/")) {
+    throw new Error("Cannot trash this path");
+  }
+
+  try {
+    await fs.access(target);
+  } catch {
+    throw new Error(`Not found: ${relativePath}`);
+  }
+
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-").replace("T", "_");
+  const dest = path.join(VAULT_PATH, "_trash", stamp, rel);
+  await fs.mkdir(path.dirname(dest), { recursive: true });
+  await fs.rename(target, dest);
+
+  for (const p of revalidate) revalidatePath(p);
+  if (redirectTo) redirect(redirectTo);
+}
+
 export async function createPerson(formData: FormData): Promise<void> {
   const name = String(formData.get("name") || "").trim();
   const relation = String(formData.get("relation") || "").trim();

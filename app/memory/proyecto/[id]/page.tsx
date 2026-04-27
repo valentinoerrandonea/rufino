@@ -1,14 +1,41 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import matter from "gray-matter";
 import { VAULT_PATH } from "@/lib/vault";
+import { readProjectOverview, type EntryPreview } from "@/lib/projects";
 import { MemoryMarkdown } from "@/components/memory-markdown";
+import { AvatarStack } from "@/components/avatar-stack";
+import { DeleteButton } from "@/components/delete-button";
 import { fmtDate } from "@/components/atoms";
 
 export const dynamic = "force-dynamic";
 
-async function readFileSafe(p: string): Promise<string | null> {
+function relTimeLong(iso: string | null): string {
+  if (!iso) return "sin actividad";
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(iso);
+  const target = dateOnly
+    ? (() => {
+        const [y, m, d] = iso.split("-").map(Number);
+        return new Date(y, m - 1, d);
+      })()
+    : new Date(iso);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const days = Math.round((today.getTime() - target.getTime()) / 86400000);
+  if (days <= 0) return "hoy";
+  if (days === 1) return "ayer";
+  if (days < 7) return `hace ${days} días`;
+  if (days < 14) return "hace 1 semana";
+  if (days < 30) return `hace ${Math.floor(days / 7)} semanas`;
+  if (days < 60) return "hace 1 mes";
+  if (days < 365) return `hace ${Math.floor(days / 30)} meses`;
+  const years = Math.floor(days / 365);
+  return `hace ${years} año${years > 1 ? "s" : ""}`;
+}
+
+async function readSafe(p: string): Promise<string | null> {
   try {
     return await fs.readFile(p, "utf-8");
   } catch {
@@ -16,53 +43,24 @@ async function readFileSafe(p: string): Promise<string | null> {
   }
 }
 
-interface NoteFile {
+interface SessionFile {
   filename: string;
   title: string;
   date: string;
   content: string;
-  tags: string[];
 }
 
-async function readNoteFiles(dir: string): Promise<NoteFile[]> {
-  const entries = await fs.readdir(dir, { withFileTypes: true }).catch(() => []);
-  const results: NoteFile[] = [];
-
-  for (const e of entries) {
-    if (!e.isFile() || !e.name.endsWith(".md")) continue;
-    const raw = await readFileSafe(path.join(dir, e.name));
-    if (!raw) continue;
-    const { data, content } = matter(raw);
-    const titleMatch = content.match(/^#\s+(.+)$/m);
-    const title = titleMatch ? titleMatch[1].trim() : path.basename(e.name, ".md");
-    const tags: string[] = Array.isArray(data.tags) ? data.tags : [];
-    results.push({
-      filename: e.name,
-      title,
-      date: String(data.updated || data.created || ""),
-      content,
-      tags,
-    });
-  }
-
-  return results.sort((a, b) => b.date.localeCompare(a.date));
-}
-
-async function readSessionsForProject(projectId: string): Promise<NoteFile[]> {
+async function readSessionsForProject(projectId: string): Promise<SessionFile[]> {
   const dir = path.join(VAULT_PATH, "sesiones");
   const entries = await fs.readdir(dir, { withFileTypes: true }).catch(() => []);
-  const results: NoteFile[] = [];
-
+  const results: SessionFile[] = [];
   for (const e of entries) {
     if (!e.isFile() || !e.name.endsWith(".md")) continue;
-    const raw = await readFileSafe(path.join(dir, e.name));
+    const raw = await readSafe(path.join(dir, e.name));
     if (!raw) continue;
     const { data, content } = matter(raw);
     const tags: string[] = Array.isArray(data.tags) ? data.tags : [];
-    const hasProject =
-      tags.includes(`proyecto/${projectId}`) ||
-      tags.some((t) => t === `proyecto/${projectId}`);
-    if (!hasProject) continue;
+    if (!tags.includes(`proyecto/${projectId}`)) continue;
     const titleMatch = content.match(/^#\s+(.+)$/m);
     const title = titleMatch ? titleMatch[1].trim() : path.basename(e.name, ".md");
     results.push({
@@ -70,168 +68,351 @@ async function readSessionsForProject(projectId: string): Promise<NoteFile[]> {
       title,
       date: String(data.created || ""),
       content,
-      tags,
     });
   }
-
   return results.sort((a, b) => b.date.localeCompare(a.date));
-}
-
-// ── Tab panels (server-rendered, expanded by default on click via details) ──
-
-function NoteList({ notes, emptyLabel }: { notes: NoteFile[]; emptyLabel: string }) {
-  if (notes.length === 0) {
-    return <p style={{ fontSize: 14, color: "var(--ink-3)", padding: "12px 0" }}>{emptyLabel}</p>;
-  }
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 0, border: "1px solid var(--hair)", borderRadius: 10, overflow: "hidden" }}>
-      {notes.map((n) => (
-        <details
-          key={n.filename}
-          style={{ borderBottom: "1px solid var(--hair-soft)" }}
-        >
-          <summary
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 16,
-              padding: "18px 22px",
-              cursor: "pointer",
-              listStyle: "none",
-              background: "var(--surface)",
-              userSelect: "none",
-            }}
-          >
-            <span className="serif" style={{ fontSize: 18, fontWeight: 500, color: "var(--accent)", flex: 1, minWidth: 0, lineHeight: 1.3 }}>
-              {n.title}
-            </span>
-            {n.date && (
-              <span style={{ fontSize: 12, color: "var(--ink-3)", flexShrink: 0 }}>{fmtDate(n.date)}</span>
-            )}
-          </summary>
-          <div style={{ padding: "20px 24px 24px", background: "var(--bg)", borderTop: "1px solid var(--hair-soft)" }}>
-            <MemoryMarkdown content={n.content} stripTitle />
-          </div>
-        </details>
-      ))}
-    </div>
-  );
 }
 
 export default async function ProyectoMemoryPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string }>;
 }) {
   const { id } = await params;
-  const { tab: rawTab } = await searchParams;
 
-  const projectDir = path.join(VAULT_PATH, "proyectos", id);
-  const entries = await fs.readdir(projectDir, { withFileTypes: true }).catch(() => null);
-  if (!entries) notFound();
+  const project = await readProjectOverview(id);
+  if (!project) notFound();
 
-  const overviewRaw = await readFileSafe(path.join(projectDir, "overview.md"));
-  const overviewParsed = overviewRaw ? matter(overviewRaw) : null;
-  const rawMeta = overviewParsed?.data as Record<string, unknown> | undefined;
-  const overviewMeta = rawMeta
-    ? {
-        created: rawMeta.created != null ? String(rawMeta.created) : undefined,
-        updated: rawMeta.updated != null ? String(rawMeta.updated) : undefined,
-        tags: Array.isArray(rawMeta.tags) ? (rawMeta.tags as string[]) : undefined,
-      }
-    : undefined;
-  const overviewContent = overviewParsed?.content ?? "";
-
-  const titleMatch = overviewContent.match(/^#\s+(.+)$/m);
-  const projectTitle = titleMatch ? titleMatch[1].trim() : id;
-
-  const [decisiones, aprendizajes, sesiones] = await Promise.all([
-    readNoteFiles(path.join(projectDir, "decisiones")),
-    readNoteFiles(path.join(projectDir, "aprendizajes")),
-    readSessionsForProject(id),
-  ]);
-
-  const tab = rawTab || "overview";
-  const tabs = [
-    { id: "overview", label: "Overview" },
-    { id: "decisiones", label: "Decisiones", count: decisiones.length },
-    { id: "aprendizajes", label: "Aprendizajes", count: aprendizajes.length },
-    { id: "sesiones", label: "Sesiones", count: sesiones.length },
-  ];
+  const sessions = await readSessionsForProject(id);
 
   return (
-    <div style={{ padding: "40px 56px 80px", maxWidth: 880, margin: "0 auto" }}>
-      {/* Back link */}
-      <a
-        href="/memory/proyectos"
-        style={{ display: "inline-block", fontSize: 12, color: "var(--ink-3)", textDecoration: "none", marginBottom: 20 }}
+    <div style={{ padding: "48px 56px 80px", maxWidth: 880, margin: "0 auto" }}>
+      <div
+        style={{
+          marginBottom: 16,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 10,
+        }}
       >
-        ← Proyectos
-      </a>
-
-      {/* Title */}
-      <h1 className="serif" style={{ fontSize: 30, fontWeight: 400, margin: "0 0 4px", letterSpacing: -0.3 }}>
-        {projectTitle}
-      </h1>
-      <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 24 }}>
-        Memoria · Proyecto
+        <Link
+          href="/memory/proyectos"
+          className="btn ghost sm"
+          style={{
+            textDecoration: "none",
+            display: "inline-flex",
+            marginLeft: -8,
+          }}
+        >
+          ← Proyectos
+        </Link>
+        <DeleteButton
+          relativePath={`proyectos/${id}`}
+          itemLabel={`el proyecto ${project.name}`}
+          redirectTo="/memory/proyectos"
+          revalidate={["/memory/proyectos", "/"]}
+        />
       </div>
 
-      {/* Tabs */}
-      <div style={{ display: "flex", gap: 2, borderBottom: "1px solid var(--hair)", marginBottom: 32 }}>
-        {tabs.map((t) => {
-          const active = tab === t.id;
-          return (
-            <a
-              key={t.id}
-              href={`/memory/proyecto/${id}?tab=${t.id}`}
+      <header
+        style={{
+          marginBottom: 28,
+          paddingBottom: 22,
+          borderBottom: "1px solid var(--hair)",
+        }}
+      >
+        <div
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+            color: "var(--accent)",
+            letterSpacing: 0.6,
+            textTransform: "uppercase",
+            fontWeight: 600,
+            marginBottom: 8,
+          }}
+        >
+          Memoria · Proyecto
+        </div>
+        <h1
+          className="serif"
+          style={{ fontSize: 36, fontWeight: 400, lineHeight: 1.1, marginBottom: 6 }}
+        >
+          {project.name}
+        </h1>
+        {project.subtitle && (
+          <p
+            style={{
+              fontSize: 16,
+              color: "var(--ink-2)",
+              margin: 0,
+              fontStyle: "italic",
+              fontFamily: "var(--font-serif), Georgia, serif",
+            }}
+          >
+            {project.subtitle}
+          </p>
+        )}
+        {project.blurb && (
+          <p
+            style={{
+              fontSize: 14,
+              color: "var(--ink-2)",
+              marginTop: 14,
+              lineHeight: 1.55,
+              maxWidth: 640,
+            }}
+          >
+            {project.blurb}
+          </p>
+        )}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 14,
+            marginTop: 18,
+            fontSize: 12,
+            color: "var(--ink-3)",
+            flexWrap: "wrap",
+          }}
+        >
+          {project.peopleInitials.length > 0 && (
+            <>
+              <AvatarStack people={project.peopleInitials} size={22} max={4} />
+              <span style={{ color: "var(--hair)" }}>·</span>
+            </>
+          )}
+          <span>último movimiento {relTimeLong(project.lastActivity)}</span>
+          {project.pendientesCount > 0 && (
+            <>
+              <span style={{ color: "var(--hair)" }}>·</span>
+              <span>
+                {project.pendientesCount} pendiente
+                {project.pendientesCount === 1 ? "" : "s"}
+              </span>
+            </>
+          )}
+        </div>
+      </header>
+
+      <EntrySection
+        title="Decisiones"
+        emptyText="Todavía no hay decisiones registradas en este proyecto."
+        entries={project.decisionEntries}
+        bodyStyle={{ fontSize: 14, lineHeight: 1.55, color: "var(--ink)" }}
+      />
+
+      <EntrySection
+        title="Aprendizajes"
+        emptyText="Todavía no hay aprendizajes registrados."
+        entries={project.lessonEntries}
+        bodyStyle={{
+          fontFamily: "var(--font-serif), Georgia, serif",
+          fontSize: 15,
+          fontStyle: "italic",
+          lineHeight: 1.55,
+          color: "var(--ink)",
+        }}
+        wrapText={(t) => `“${t}”`}
+        marginTop={36}
+      />
+
+      {sessions.length > 0 && (
+        <section style={{ marginTop: 36 }}>
+          <h2
+            className="serif"
+            style={{
+              fontSize: 22,
+              fontWeight: 500,
+              marginBottom: 14,
+              display: "flex",
+              alignItems: "baseline",
+              gap: 10,
+            }}
+          >
+            Sesiones
+            <span
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "10px 14px",
-                textDecoration: "none",
-                borderBottom: active ? "2px solid var(--accent)" : "2px solid transparent",
-                color: active ? "var(--ink)" : "var(--ink-3)",
-                fontSize: 13,
-                fontWeight: active ? 500 : 400,
-                marginBottom: -1,
+                fontSize: 12,
+                color: "var(--ink-3)",
+                fontFamily: "var(--font-sans)",
+                fontWeight: 400,
               }}
             >
-              <span>{t.label}</span>
-              {"count" in t && t.count !== undefined && (
-                <span style={{ fontSize: 11, color: "var(--ink-3)" }}>{t.count}</span>
-              )}
-            </a>
-          );
-        })}
-      </div>
-
-      {/* Tab content */}
-      {tab === "overview" && (
-        <>
-          {overviewContent ? (
-            <MemoryMarkdown content={overviewContent} meta={overviewMeta} stripTitle />
-          ) : (
-            <p style={{ color: "var(--ink-3)", fontSize: 14 }}>Sin overview todavía.</p>
-          )}
-        </>
+              {sessions.length}
+            </span>
+          </h2>
+          <div
+            style={{
+              border: "1px solid var(--hair)",
+              borderRadius: 10,
+              overflow: "hidden",
+            }}
+          >
+            {sessions.map((s, i) => (
+              <details
+                key={s.filename}
+                style={{
+                  borderBottom:
+                    i < sessions.length - 1
+                      ? "1px solid var(--hair-soft)"
+                      : "none",
+                }}
+              >
+                <summary
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 16,
+                    padding: "14px 22px",
+                    cursor: "pointer",
+                    listStyle: "none",
+                    background: "var(--surface)",
+                    userSelect: "none",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 14,
+                      color: "var(--ink)",
+                      lineHeight: 1.3,
+                      flex: 1,
+                      minWidth: 0,
+                    }}
+                  >
+                    {s.title}
+                  </span>
+                  {s.date && (
+                    <span style={{ fontSize: 11.5, color: "var(--ink-3)", flexShrink: 0 }}>
+                      {fmtDate(s.date)}
+                    </span>
+                  )}
+                </summary>
+                <div
+                  style={{
+                    padding: "18px 22px 22px",
+                    background: "var(--bg)",
+                    borderTop: "1px solid var(--hair-soft)",
+                  }}
+                >
+                  <MemoryMarkdown content={s.content} stripTitle />
+                </div>
+              </details>
+            ))}
+          </div>
+        </section>
       )}
 
-      {tab === "decisiones" && (
-        <NoteList notes={decisiones} emptyLabel="Sin decisiones registradas en este proyecto." />
-      )}
-
-      {tab === "aprendizajes" && (
-        <NoteList notes={aprendizajes} emptyLabel="Sin aprendizajes registrados en este proyecto." />
-      )}
-
-      {tab === "sesiones" && (
-        <NoteList notes={sesiones} emptyLabel="Sin sesiones vinculadas a este proyecto." />
+      {project.overviewContent && (
+        <details style={{ marginTop: 40 }}>
+          <summary
+            style={{
+              fontSize: 12,
+              color: "var(--ink-3)",
+              cursor: "pointer",
+              listStyle: "none",
+              userSelect: "none",
+              letterSpacing: 0.4,
+              textTransform: "uppercase",
+              fontWeight: 600,
+              padding: "8px 0",
+            }}
+          >
+            Overview completo
+          </summary>
+          <div style={{ marginTop: 14 }}>
+            <MemoryMarkdown content={project.overviewContent} stripTitle />
+          </div>
+        </details>
       )}
     </div>
+  );
+}
+
+interface EntrySectionProps {
+  title: string;
+  emptyText: string;
+  entries: EntryPreview[];
+  bodyStyle: React.CSSProperties;
+  wrapText?: (t: string) => string;
+  marginTop?: number;
+}
+
+function EntrySection({
+  title,
+  emptyText,
+  entries,
+  bodyStyle,
+  wrapText,
+  marginTop,
+}: EntrySectionProps) {
+  return (
+    <section style={{ marginBottom: 36, marginTop }}>
+      <h2
+        className="serif"
+        style={{
+          fontSize: 22,
+          fontWeight: 500,
+          marginBottom: 14,
+          display: "flex",
+          alignItems: "baseline",
+          gap: 10,
+        }}
+      >
+        {title}
+        <span
+          style={{
+            fontSize: 12,
+            color: "var(--ink-3)",
+            fontFamily: "var(--font-sans)",
+            fontWeight: 400,
+          }}
+        >
+          {entries.length}
+        </span>
+      </h2>
+      {entries.length === 0 ? (
+        <div
+          style={{
+            padding: "18px 22px",
+            border: "1px dashed var(--hair)",
+            borderRadius: 8,
+            fontSize: 13,
+            color: "var(--ink-3)",
+          }}
+        >
+          {emptyText}
+        </div>
+      ) : (
+        <div className="card" style={{ overflow: "hidden" }}>
+          {entries.map((e, i) => (
+            <div
+              key={e.id}
+              style={{
+                padding: "16px 22px",
+                borderBottom:
+                  i < entries.length - 1
+                    ? "1px solid var(--hair-soft)"
+                    : "none",
+              }}
+            >
+              <div style={bodyStyle}>{wrapText ? wrapText(e.title) : e.title}</div>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "var(--ink-3)",
+                  marginTop: 6,
+                }}
+              >
+                {relTimeLong(e.when)}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }

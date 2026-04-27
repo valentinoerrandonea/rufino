@@ -5,7 +5,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { RUFINO_PATH, VAULT_PATH } from "@/lib/vault";
 import { MemoryMarkdown } from "@/components/memory-markdown";
-import { FileEditor, EditButton } from "@/components/file-editor";
+import { PersonEditor, PersonEditButton } from "@/components/person-editor";
+import { DeleteButton } from "@/components/delete-button";
 
 export const dynamic = "force-dynamic";
 
@@ -38,10 +39,11 @@ export default async function PersonDetailPage({ params }: PageProps) {
 
   return (
     <div style={{ padding: "48px 72px 80px", maxWidth: 960, margin: "0 auto" }}>
-      <FileEditor
+      <PersonEditor
         relativePath={personFilePath}
         initialContent={rawFile}
         revalidate={[`/people/${id}`, "/people", "/"]}
+        initialName={name}
       >
         <div
           style={{
@@ -59,7 +61,15 @@ export default async function PersonDetailPage({ params }: PageProps) {
           >
             ← Volver a personas
           </Link>
-          <EditButton />
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <PersonEditButton />
+            <DeleteButton
+              relativePath={personFilePath}
+              itemLabel={`a ${name}`}
+              redirectTo="/people"
+              revalidate={["/people", "/"]}
+            />
+          </div>
         </div>
 
         {/* Header with avatar + name */}
@@ -82,7 +92,7 @@ export default async function PersonDetailPage({ params }: PageProps) {
 
         {/* Full markdown content of the person file */}
         <MemoryMarkdown content={content} meta={frontmatter} stripTitle />
-      </FileEditor>
+      </PersonEditor>
     </div>
   );
 }

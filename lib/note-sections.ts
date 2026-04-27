@@ -18,6 +18,7 @@ export interface ParsedNote {
 }
 
 export interface NoteUpdates {
+  title: string;
   rawBody: string;
   resumen: string;
   analisis: string;
@@ -160,16 +161,19 @@ export function serializeNote(
 
   const titleMatch = md.match(/^#\s+.+$/m);
   if (titleMatch && titleMatch.index !== undefined) {
-    const after = titleMatch.index + titleMatch[0].length;
+    const newTitle = updates.title.trim() || parsed.title;
+    const titleStart = titleMatch.index;
+    const titleEnd = titleStart + titleMatch[0].length;
+    const after = titleEnd;
     const rest = md.slice(after);
     const rawEnds = [rest.search(/\n---\s*\n/), rest.search(/\n##\s/)].filter(
       (i) => i !== -1
     );
     const endRel = rawEnds.length ? Math.min(...rawEnds) : rest.length;
     const newBody = updates.rawBody.trim();
-    const before = md.slice(0, after);
+    const before = md.slice(0, titleStart);
     const tail = md.slice(after + endRel).replace(/^\n+/, "\n");
-    md = before + `\n\n${newBody}\n` + tail;
+    md = before + `# ${newTitle}\n\n${newBody}\n` + tail;
   }
 
   return md;

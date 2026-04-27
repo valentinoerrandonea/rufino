@@ -49,6 +49,7 @@ export function NoteEditor({
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
+  const [editTitle, setEditTitle] = useState(title);
   const [rawBody, setRawBody] = useState(parsed.rawBody);
   const [resumen, setResumen] = useState(parsed.resumen);
   const [analisis, setAnalisis] = useState(parsed.analisis);
@@ -57,6 +58,7 @@ export function NoteEditor({
   const [followups, setFollowups] = useState(parsed.followups);
 
   const start = () => {
+    setEditTitle(title);
     setRawBody(parsed.rawBody);
     setResumen(parsed.resumen);
     setAnalisis(parsed.analisis);
@@ -75,6 +77,7 @@ export function NoteEditor({
   const save = () => {
     setError(null);
     const updates: NoteUpdates = {
+      title: editTitle,
       rawBody,
       resumen,
       analisis,
@@ -95,6 +98,7 @@ export function NoteEditor({
   };
 
   const dirty =
+    editTitle.trim() !== title ||
     rawBody !== parsed.rawBody ||
     resumen !== parsed.resumen ||
     analisis !== parsed.analisis ||
@@ -106,7 +110,8 @@ export function NoteEditor({
     return (
       <div>
         <EditHeader
-          title={title}
+          title={editTitle}
+          onTitleChange={setEditTitle}
           project={project}
           arista={arista}
           dateLabel={dateLabel}
@@ -214,6 +219,7 @@ export function NoteEditButton({ label = "Editar" }: { label?: string }) {
 
 interface EditHeaderProps {
   title: string;
+  onTitleChange: (v: string) => void;
   project: string;
   arista?: string;
   dateLabel: string;
@@ -225,6 +231,7 @@ interface EditHeaderProps {
 
 function EditHeader({
   title,
+  onTitleChange,
   project,
   arista,
   dateLabel,
@@ -286,18 +293,38 @@ function EditHeader({
         <span style={{ color: "var(--ink-3)" }}>·</span>
         <span style={{ color: "var(--ink-3)" }}>{dateLabel}</span>
       </div>
-      <h1
+      <input
+        type="text"
+        value={title}
+        onChange={(e) => onTitleChange(e.target.value)}
+        spellCheck={false}
+        placeholder="Título"
         className="serif"
         style={{
+          width: "100%",
           fontSize: 30,
           fontWeight: 400,
           lineHeight: 1.2,
           margin: 0,
           marginBottom: 20,
+          padding: "4px 6px",
+          background: "transparent",
+          border: "1px solid transparent",
+          borderRadius: 6,
+          color: "var(--ink)",
+          outline: "none",
+          fontFamily: "'Newsreader', Georgia, serif",
+          letterSpacing: "-0.005em",
         }}
-      >
-        {title}
-      </h1>
+        onFocus={(e) => {
+          e.currentTarget.style.borderColor = "var(--hair)";
+          e.currentTarget.style.background = "var(--surface)";
+        }}
+        onBlur={(e) => {
+          e.currentTarget.style.borderColor = "transparent";
+          e.currentTarget.style.background = "transparent";
+        }}
+      />
     </div>
   );
 }
@@ -336,7 +363,7 @@ interface AutoTextareaProps {
   style?: React.CSSProperties;
 }
 
-function AutoTextarea({ value, onChange, minHeight = 80, style }: AutoTextareaProps) {
+export function AutoTextarea({ value, onChange, minHeight = 80, style }: AutoTextareaProps) {
   const ref = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {

@@ -6,6 +6,7 @@ import { readProcessedNotes, VAULT_PATH } from "@/lib/vault";
 import { fmtDate } from "@/components/atoms";
 import { Markdown } from "@/components/markdown";
 import { NoteEditor, NoteEditButton } from "@/components/note-editor";
+import { DeleteButton } from "@/components/delete-button";
 
 export const dynamic = "force-dynamic";
 
@@ -172,7 +173,15 @@ export default async function NoteDetailPage({
           >
             ← Volver a notas
           </Link>
-          <NoteEditButton />
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <NoteEditButton />
+            <DeleteButton
+              relativePath={noteFilePath}
+              itemLabel="esta nota"
+              redirectTo="/notes"
+              revalidate={["/notes", "/"]}
+            />
+          </div>
         </div>
 
       {/* Header */}
