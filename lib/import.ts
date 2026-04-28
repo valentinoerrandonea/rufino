@@ -45,9 +45,21 @@ export interface IngestPlanTriple {
   appendTo: string;
 }
 
+/** Lifecycle of the plan-generation step itself, distinct from the plan's
+ * apply status. The heuristic plan is written immediately ("ready"), but if
+ * we're upgrading via LLM async, we mark "generating" and flip to "ready" or
+ * "failed" once the async job finishes. The /import/[id] UI polls this. */
+export type PlanGenerationStatus = "generating" | "ready" | "failed";
+
 export interface IngestPlan {
   id: string;
   status: IngestStatus;
+  /** Generation status of the plan itself (pending LLM upgrade vs ready). */
+  planStatus?: PlanGenerationStatus;
+  /** Inbox file path (relative to vault) — used by the LLM upgrader. */
+  inboxPath?: string;
+  /** Error message if planStatus = "failed". */
+  error?: string;
   createdAt: string;
   source: { kind: IngestSourceKind; original: string; bytes: number };
   title: string;
@@ -166,11 +178,12 @@ export function buildPlanFromBody(opts: {
   return {
     id,
     status: "pending",
+    planStatus: "ready",
     createdAt: new Date().toISOString(),
     source,
     title,
     subtitle: null,
-    meta: `Procesado ahora · ${create.length} entidades a crear, ${update.length} a updatear, ${triples.length} conexiones`,
+    meta: `Heurístico · ${create.length} entidades a crear, ${update.length} a updatear, ${triples.length} conexiones`,
     create,
     update,
     triples,

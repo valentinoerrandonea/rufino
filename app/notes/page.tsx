@@ -9,7 +9,11 @@ export const dynamic = "force-dynamic";
 
 export default async function NotesPage() {
   const [notes, rawNotes] = await Promise.all([readProcessedNotes(), readRawNotes()]);
-  const processing = isProcessorRunning();
+  const cronRunning = isProcessorRunning();
+  const inflightCount = notes.filter(
+    (n) => n.status === "queued" || n.status === "processing",
+  ).length;
+  const processing = cronRunning || inflightCount > 0;
 
   // Strip heavy body fields before passing to the client component
   const lite = notes.map((n) => ({
@@ -19,6 +23,7 @@ export default async function NotesPage() {
     arista: n.arista,
     type: n.type,
     tags: n.tags,
+    status: n.status,
     excerpt: n.excerpt,
     created: n.created,
     processed: n.processed,
@@ -43,9 +48,14 @@ export default async function NotesPage() {
           </h1>
           <p style={{ fontSize: 13, color: "var(--ink-2)", marginTop: 6 }}>
             {notes.length} procesadas · {rawNotes.length} sin procesar
-            {processing && (
+            {inflightCount > 0 && (
               <span style={{ marginLeft: 10, color: "var(--accent)" }}>
-                · ⏳ procesando…
+                · ⏳ {inflightCount} procesando…
+              </span>
+            )}
+            {cronRunning && inflightCount === 0 && (
+              <span style={{ marginLeft: 10, color: "var(--accent)" }}>
+                · ⏳ cron corriendo…
               </span>
             )}
           </p>

@@ -10,6 +10,18 @@ const PROCESSOR_SCRIPT = path.join(
   "scripts",
   "rufino-cron.sh"
 );
+const SINGLE_FILE_SCRIPT = path.join(
+  os.homedir(),
+  ".claude",
+  "scripts",
+  "rufino-process-single.sh"
+);
+const IMPORT_PLAN_SCRIPT = path.join(
+  os.homedir(),
+  ".claude",
+  "scripts",
+  "rufino-import-plan.sh"
+);
 const LOCKFILE = path.join(RUFINO_PATH, ".processing.lock");
 
 /**
@@ -55,6 +67,73 @@ export function triggerProcessor(): void {
   });
 
   // Don't wait for child exit
+  child.unref();
+}
+
+/**
+ * Process a single file in the background. Fire-and-forget.
+ *
+ * Spawns rufino-process-single.sh with the target file path. The script
+ * runs Claude Code with the rufino-process-single.md prompt, which does
+ * full processing (augmentation, tagging, triples, concept promotion,
+ * persona detection, pendientes extraction, indices) on that single file.
+ *
+ * Use this from server actions after writing a file with
+ * `status: queued` in frontmatter. The processor will flip the status
+ * to `processing` while it runs and `processed` when done.
+ */
+export function processFile(absoluteOrVaultRelativePath: string): void {
+  if (!fs.existsSync(SINGLE_FILE_SCRIPT)) {
+    console.error(
+      `[rufino-processor] single-file script not found at ${SINGLE_FILE_SCRIPT}`,
+    );
+    return;
+  }
+
+  const child = spawn("/bin/bash", [SINGLE_FILE_SCRIPT, absoluteOrVaultRelativePath], {
+    detached: true,
+    stdio: "ignore",
+    env: {
+      ...process.env,
+      RUFINO_VAULT_PATH:
+        process.env.RUFINO_VAULT_PATH || "/Users/val/Files/vaultlentino",
+    },
+  });
+
+  child.unref();
+}
+
+/**
+ * Generate an import plan using Claude Code in the background.
+ * Fire-and-forget — the plan JSON is written by the script to the same
+ * path it received, with planStatus flipped from "generating" to "ready".
+ *
+ * Use this from submitImport after writing the heuristic draft plan.
+ * The dashboard's /import/[id] page polls planStatus and shows a
+ * "generando plan…" indicator while it's not yet "ready".
+ */
+export function planImport(inboxFilePath: string, planJsonPath: string): void {
+  if (!fs.existsSync(IMPORT_PLAN_SCRIPT)) {
+    console.error(
+      `[rufino-processor] import plan script not found at ${IMPORT_PLAN_SCRIPT}`,
+    );
+    return;
+  }
+
+  const child = spawn(
+    "/bin/bash",
+    [IMPORT_PLAN_SCRIPT, inboxFilePath, planJsonPath],
+    {
+      detached: true,
+      stdio: "ignore",
+      env: {
+        ...process.env,
+        RUFINO_VAULT_PATH:
+          process.env.RUFINO_VAULT_PATH || "/Users/val/Files/vaultlentino",
+      },
+    },
+  );
+
   child.unref();
 }
 

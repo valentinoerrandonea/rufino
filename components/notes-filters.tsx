@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { relTime } from "@/components/atoms";
+import { ProcessingBadge } from "@/components/processing-badge";
 
 type NoteLite = {
   id: string;
@@ -11,6 +12,7 @@ type NoteLite = {
   arista?: string;
   type: string;
   tags: string[];
+  status?: string;
   excerpt: string;
   created: string;
   processed?: string;
@@ -221,6 +223,7 @@ export function NotesFilters({ notes }: Props) {
                       <h3 className="serif" style={{ fontSize: 15, fontWeight: 500 }}>
                         {n.title}
                       </h3>
+                      <ProcessingBadge status={n.status} />
                       {n.arista && (
                         <span style={{ fontSize: 11, color: "var(--accent)" }}>
                           {n.arista}
