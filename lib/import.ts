@@ -8,7 +8,7 @@ const PENDING_DIR = path.join(VAULT_PATH, "_meta", "ingest-pending");
 const APPLIED_DIR = path.join(VAULT_PATH, "_meta", "ingest-applied");
 const DISCARDED_DIR = path.join(VAULT_PATH, "_meta", "ingest-discarded");
 
-export type IngestSourceKind = "file" | "url" | "text";
+export type IngestSourceKind = "file" | "url" | "text" | "pdf";
 export type IngestStatus = "pending" | "applied" | "discarded";
 
 export interface IngestPlanCreate {
