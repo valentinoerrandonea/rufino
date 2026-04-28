@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { readProjectOverview, type EntryPreview } from "@/lib/projects";
 import { AvatarStack } from "@/components/avatar-stack";
 import { DeleteButton } from "@/components/delete-button";
+import { ProjectEditToggle } from "@/components/project-edit-form";
 
 export const dynamic = "force-dynamic";
 
@@ -60,12 +61,20 @@ export default async function ProjectDetailPage({ params }: PageProps) {
         >
           ← Proyectos
         </Link>
-        <DeleteButton
-          relativePath={`proyectos/${id}`}
-          itemLabel={`el proyecto ${project.name}`}
-          redirectTo="/projects"
-          revalidate={["/projects", "/"]}
-        />
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <ProjectEditToggle
+            projectId={id}
+            initialName={project.name}
+            initialDescription={project.blurb}
+            initialTags={project.tags}
+          />
+          <DeleteButton
+            relativePath={`proyectos/${id}`}
+            itemLabel={`el proyecto ${project.name}`}
+            redirectTo="/projects"
+            revalidate={["/projects", "/"]}
+          />
+        </div>
       </div>
 
       <header
@@ -154,6 +163,8 @@ export default async function ProjectDetailPage({ params }: PageProps) {
         title="Decisiones"
         emptyText="Todavía no hay decisiones registradas en este proyecto."
         entries={project.decisionEntries}
+        projectId={id}
+        kind="decision"
         bodyStyle={{
           fontSize: 14,
           lineHeight: 1.55,
@@ -165,6 +176,8 @@ export default async function ProjectDetailPage({ params }: PageProps) {
         title="Aprendizajes"
         emptyText="Todavía no hay aprendizajes registrados."
         entries={project.lessonEntries}
+        projectId={id}
+        kind="aprendizaje"
         bodyStyle={{
           fontFamily: "var(--font-serif), Georgia, serif",
           fontSize: 15,
@@ -172,7 +185,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
           lineHeight: 1.55,
           color: "var(--ink)",
         }}
-        wrapText={(t) => `“${t}”`}
+        wrapText={(t) => `"${t}"`}
         marginTop={36}
       />
 
@@ -233,6 +246,8 @@ interface EntrySectionProps {
   title: string;
   emptyText: string;
   entries: EntryPreview[];
+  projectId: string;
+  kind: "decision" | "aprendizaje";
   bodyStyle: React.CSSProperties;
   wrapText?: (t: string) => string;
   marginTop?: number;
@@ -242,6 +257,8 @@ function EntrySection({
   title,
   emptyText,
   entries,
+  projectId,
+  kind,
   bodyStyle,
   wrapText,
   marginTop,
@@ -286,14 +303,19 @@ function EntrySection({
       ) : (
         <div className="card" style={{ overflow: "hidden" }}>
           {entries.map((e, i) => (
-            <div
+            <Link
               key={e.id}
+              href={`/projects/${projectId}/${kind}/${e.id}`}
+              className="hoverable"
               style={{
+                display: "block",
                 padding: "16px 22px",
                 borderBottom:
                   i < entries.length - 1
                     ? "1px solid var(--hair-soft)"
                     : "none",
+                textDecoration: "none",
+                color: "inherit",
               }}
             >
               <div style={bodyStyle}>{wrapText ? wrapText(e.title) : e.title}</div>
@@ -302,11 +324,15 @@ function EntrySection({
                   fontSize: 11,
                   color: "var(--ink-3)",
                   marginTop: 6,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
                 }}
               >
                 {relTimeLong(e.when)}
+                <span style={{ color: "var(--accent)", fontSize: 10 }}>→ ver detalle</span>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}

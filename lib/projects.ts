@@ -54,6 +54,7 @@ export type ProjectDetail = {
   pendientesCount: number;
   lastActivity: string | null;
   peopleInitials: string[];
+  tags: string[];
 };
 
 async function readSafe(p: string): Promise<string | null> {
@@ -275,6 +276,8 @@ export async function readProjectOverview(id: string): Promise<ProjectDetail | n
     (t) => t.projectArista === id || t.projectArista.startsWith(`${id}/`),
   ).length;
 
+  const tags: string[] = Array.isArray(data.tags) ? data.tags : [];
+
   return {
     id,
     name,
@@ -290,6 +293,7 @@ export async function readProjectOverview(id: string): Promise<ProjectDetail | n
     pendientesCount,
     lastActivity,
     peopleInitials,
+    tags,
   };
 }
 
@@ -300,4 +304,54 @@ export async function readProjectFolders(id: string) {
     listRufinoNoteIds(id),
   ]);
   return { decisiones, aprendizajes, noteIds };
+}
+
+export type EntryDetail = {
+  id: string;
+  projectId: string;
+  kind: "decision" | "aprendizaje";
+  title: string;
+  content: string;
+  tags: string[];
+  when: string | null;
+};
+
+/**
+ * Read a single decision or lesson entry from a project.
+ * kind: "decision" looks in proyectos/<projectId>/decisiones/<entryId>.md
+ * kind: "aprendizaje" looks in proyectos/<projectId>/aprendizajes/<entryId>.md
+ */
+export async function readProjectEntry(
+  projectId: string,
+  kind: "decision" | "aprendizaje",
+  entryId: string
+): Promise<EntryDetail | null> {
+  const folder = kind === "decision" ? "decisiones" : "aprendizajes";
+  const filePath = path.join(PROJECTS_PATH, projectId, folder, `${entryId}.md`);
+  const raw = await readSafe(filePath);
+  if (!raw) return null;
+
+  const { data, content } = matter(raw);
+  const tags: string[] = Array.isArray(data.tags) ? data.tags : [];
+
+  const h1Match = content.match(/^#\s+(.+)$/m);
+  let title = h1Match ? h1Match[1].trim() : entryId;
+  title = title
+    .replace(/^Decisi[óo]n:\s*/i, "")
+    .replace(/^Aprendizaje:\s*/i, "")
+    .trim();
+
+  const updated = data.updated != null ? String(data.updated) : null;
+  const created = data.created != null ? String(data.created) : null;
+  const when = updated ?? created;
+
+  return {
+    id: entryId,
+    projectId,
+    kind,
+    title,
+    content,
+    tags,
+    when,
+  };
 }
