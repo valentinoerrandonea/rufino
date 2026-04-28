@@ -211,12 +211,16 @@ export default async function ProyectoMemoryPage({
         emptyText="Todavía no hay decisiones registradas en este proyecto."
         entries={project.decisionEntries}
         bodyStyle={{ fontSize: 14, lineHeight: 1.55, color: "var(--ink)" }}
+        projectId={id}
+        kind="decision"
       />
 
       <EntrySection
         title="Aprendizajes"
         emptyText="Todavía no hay aprendizajes registrados."
         entries={project.lessonEntries}
+        projectId={id}
+        kind="aprendizaje"
         bodyStyle={{
           fontFamily: "var(--font-serif), Georgia, serif",
           fontSize: 15,
@@ -348,6 +352,8 @@ interface EntrySectionProps {
   bodyStyle: React.CSSProperties;
   wrapText?: (t: string) => string;
   marginTop?: number;
+  projectId: string;
+  kind: "decision" | "aprendizaje";
 }
 
 function EntrySection({
@@ -357,6 +363,8 @@ function EntrySection({
   bodyStyle,
   wrapText,
   marginTop,
+  projectId,
+  kind,
 }: EntrySectionProps) {
   return (
     <section style={{ marginBottom: 36, marginTop }}>
@@ -398,14 +406,19 @@ function EntrySection({
       ) : (
         <div className="card" style={{ overflow: "hidden" }}>
           {entries.map((e, i) => (
-            <div
+            <Link
               key={e.id}
+              href={`/projects/${projectId}/${kind}/${e.id}`}
+              className="hoverable"
               style={{
+                display: "block",
                 padding: "16px 22px",
                 borderBottom:
                   i < entries.length - 1
                     ? "1px solid var(--hair-soft)"
                     : "none",
+                color: "inherit",
+                textDecoration: "none",
               }}
             >
               <div style={bodyStyle}>{wrapText ? wrapText(e.title) : e.title}</div>
@@ -418,7 +431,7 @@ function EntrySection({
               >
                 {relTimeLong(e.when)}
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}
