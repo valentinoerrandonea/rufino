@@ -120,35 +120,46 @@ export default async function NoteDetailPage({
   const tagGroups = groupTagsByAxis(note.tags);
   const connections = await connectionsFor(id);
 
-  // Parse augmentation sections from note body
-  // The body contains the full markdown including the title
-  // We split manually to get distinct renderable sections
-  const augStart = note.body.indexOf("## Rufino Augmentation");
-  const contextStart = note.body.indexOf("## Context");
-  const connectionsStart = note.body.indexOf("## Connections");
+  // Parse augmentation sections from note body.
+  // Two conventions exist in the vault:
+  //   - Legacy: a `## Rufino Augmentation` wrapper followed by `## Context` / `## Connections`.
+  //     The wrapper itself is just a label — strip it so its inner subsections render as headings.
+  //   - Current (Spanish prompt): no wrapper. Top-level `## Resumen estructurado`, `## Análisis`,
+  //     `## Implicaciones`, then `## Contexto` / `## Conexiones`. Keep these headings — they are
+  //     the actual section titles.
+  const findFirst = (...needles: string[]): { idx: number; needle: string } => {
+    for (const n of needles) {
+      const i = note.body.indexOf(n);
+      if (i !== -1) return { idx: i, needle: n };
+    }
+    return { idx: -1, needle: "" };
+  };
+
+  const aug = findFirst("## Rufino Augmentation", "## Resumen estructurado", "## Resumen");
+  const ctx = findFirst("## Contexto", "## Context");
+  const conn = findFirst("## Conexiones", "## Connections");
+
+  const sliceEnd = (...candidates: number[]): number | undefined => {
+    const valid = candidates.filter((i) => i !== -1);
+    return valid.length > 0 ? Math.min(...valid) : undefined;
+  };
 
   const originalContent = note.original;
 
+  // Legacy wrapper is a label — strip it. Spanish anchors are the section title — keep it.
+  const augStartCursor =
+    aug.needle === "## Rufino Augmentation" ? aug.idx + aug.needle.length : aug.idx;
+
   const augmentationContent =
-    augStart !== -1
-      ? note.body.slice(
-          augStart + "## Rufino Augmentation".length,
-          contextStart !== -1 ? contextStart : connectionsStart !== -1 ? connectionsStart : undefined
-        ).trim()
-      : "";
+    aug.idx !== -1 ? note.body.slice(augStartCursor, sliceEnd(ctx.idx, conn.idx)).trim() : "";
 
   const contextContent =
-    contextStart !== -1
-      ? note.body.slice(
-          contextStart + "## Context".length,
-          connectionsStart !== -1 ? connectionsStart : undefined
-        ).trim()
+    ctx.idx !== -1
+      ? note.body.slice(ctx.idx + ctx.needle.length, sliceEnd(conn.idx)).trim()
       : "";
 
   const connectionsContent =
-    connectionsStart !== -1
-      ? note.body.slice(connectionsStart + "## Connections".length).trim()
-      : "";
+    conn.idx !== -1 ? note.body.slice(conn.idx + conn.needle.length).trim() : "";
 
   const inflight = note.status === "queued" || note.status === "processing";
 
