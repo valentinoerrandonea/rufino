@@ -21,13 +21,6 @@ export default async function HomePage() {
   });
   const todayISO = new Date().toISOString().split("T")[0];
   const dueToday = activeTodos.filter((t) => t.deadline === todayISO);
-  const dueSoon = activeTodos.filter((t) => {
-    if (!t.deadline) return false;
-    const d = new Date(t.deadline);
-    if (isNaN(d.getTime())) return false;
-    const days = Math.floor((d.getTime() - Date.now()) / 86400000);
-    return days >= 0 && days <= 7;
-  });
 
   // Group active todos by projectArista. Within each group sort by deadline
   // ASC (earliest first; sin fecha al final). Sort groups by their most

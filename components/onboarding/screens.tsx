@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   IconAlert,
   IconArrowRight,
@@ -33,10 +33,11 @@ import {
 // Pantalla 1 — Welcome
 // ──────────────────────────────────────────
 export function ScreenWelcome({ onNext }: { onNext: () => void }) {
-  const [animKey, setAnimKey] = useState(0);
-  useEffect(() => {
-    setAnimKey((k) => k + 1);
-  }, []);
+  // Stable per-mount key for entrance animations — using a ref-like lazy
+  // initializer instead of setState-in-effect avoids the cascading-render
+  // lint and is functionally equivalent (the key only needs to be unique
+  // per mount, not change after).
+  const [animKey] = useState(() => Date.now());
 
   return (
     <StepBody stepKey="welcome">

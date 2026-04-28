@@ -26,17 +26,20 @@ interface TweaksPanelProps {
 
 export function TweaksPanel({ open, onClose }: TweaksPanelProps) {
   const { theme, toggle } = useTheme();
-  const [accent, setAccent] = useState<AccentId>("terracota");
-
-  // Load persisted accent on mount
-  useEffect(() => {
+  // Lazy init pulls the persisted accent from localStorage once on mount
+  // (this is a client-only component). The accompanying useEffect just
+  // applies the CSS side-effect — no setState-in-effect needed.
+  const [accent, setAccent] = useState<AccentId>(() => {
+    if (typeof window === "undefined") return "terracota";
     const stored = localStorage.getItem(STORAGE_KEY) as AccentId | null;
-    if (stored && ACCENT_OPTIONS.find((o) => o.id === stored)) {
-      setAccent(stored);
-      const opt = ACCENT_OPTIONS.find((o) => o.id === stored)!;
-      applyAccent(opt.primary, opt.secondary);
-    }
-  }, []);
+    if (stored && ACCENT_OPTIONS.find((o) => o.id === stored)) return stored;
+    return "terracota";
+  });
+
+  useEffect(() => {
+    const opt = ACCENT_OPTIONS.find((o) => o.id === accent);
+    if (opt) applyAccent(opt.primary, opt.secondary);
+  }, [accent]);
 
   const handleAccent = (id: AccentId) => {
     const opt = ACCENT_OPTIONS.find((o) => o.id === id)!;
