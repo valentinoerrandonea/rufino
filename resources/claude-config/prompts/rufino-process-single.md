@@ -144,7 +144,7 @@ If the target is in `rufino/<filename>.md` (raíz, raw inbox):
    - **Implicaciones** — broader context, connections to other projects
 3. Add Context section explaining concepts mentioned
 4. Add Connections section with REAL wikilinks (verify each target exists)
-5. Move the file: `rufino/<filename>.md` → `rufino/<project>/<type>/<filename>.md`
+5. **MOVE the file** with `Bash` `mv` to `rufino/<project>/<type>/<filename>.md`. Use `mv` (NOT `cp`). The source path becomes empty by definition of `mv` — this is NOT a delete in the destructive sense, it's relocation. **Do NOT leave a redirect stub at the original location with `status: moved`/`archived`** — that contaminates the inbox and creates ambiguous wikilink resolution (two files with the same basename: the stub + the real one).
 
 For files NOT in raw inbox: SKIP this step. Don't rewrite the body.
 
