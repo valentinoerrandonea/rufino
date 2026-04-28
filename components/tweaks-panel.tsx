@@ -1,23 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { useTheme } from "./theme-provider";
-
-const ACCENT_OPTIONS = [
-  { id: "terracota", label: "Terracota", primary: "#b06836", secondary: "#c4855a" },
-  { id: "oliva",     label: "Oliva",     primary: "#6b7a4b", secondary: "#859460" },
-  { id: "indigo",    label: "Indigo",    primary: "#5a6ea0", secondary: "#7285b8" },
-  { id: "grafito",   label: "Grafito",   primary: "#4a4a4a", secondary: "#666666" },
-] as const;
-
-type AccentId = (typeof ACCENT_OPTIONS)[number]["id"];
-
-const STORAGE_KEY = "rufino-accent";
-
-function applyAccent(primary: string, secondary: string) {
-  document.documentElement.style.setProperty("--accent", primary);
-  document.documentElement.style.setProperty("--accent-2", secondary);
-}
 
 interface TweaksPanelProps {
   open: boolean;
@@ -26,27 +9,6 @@ interface TweaksPanelProps {
 
 export function TweaksPanel({ open, onClose }: TweaksPanelProps) {
   const { theme, toggle } = useTheme();
-  // Lazy init pulls the persisted accent from localStorage once on mount
-  // (this is a client-only component). The accompanying useEffect just
-  // applies the CSS side-effect — no setState-in-effect needed.
-  const [accent, setAccent] = useState<AccentId>(() => {
-    if (typeof window === "undefined") return "terracota";
-    const stored = localStorage.getItem(STORAGE_KEY) as AccentId | null;
-    if (stored && ACCENT_OPTIONS.find((o) => o.id === stored)) return stored;
-    return "terracota";
-  });
-
-  useEffect(() => {
-    const opt = ACCENT_OPTIONS.find((o) => o.id === accent);
-    if (opt) applyAccent(opt.primary, opt.secondary);
-  }, [accent]);
-
-  const handleAccent = (id: AccentId) => {
-    const opt = ACCENT_OPTIONS.find((o) => o.id === id)!;
-    setAccent(id);
-    localStorage.setItem(STORAGE_KEY, id);
-    applyAccent(opt.primary, opt.secondary);
-  };
 
   if (!open) return null;
 
@@ -105,49 +67,6 @@ export function TweaksPanel({ open, onClose }: TweaksPanelProps) {
             <span style={{ fontSize: 15 }}>{theme === "light" ? "☾" : "☀"}</span>
             <span>{theme === "light" ? "Cambiar a oscuro" : "Cambiar a claro"}</span>
           </button>
-        </div>
-
-        {/* Accent */}
-        <div>
-          <div style={{ fontSize: 10.5, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 500, marginBottom: 10 }}>
-            Color de acento
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            {ACCENT_OPTIONS.map((opt) => {
-              const active = accent === opt.id;
-              return (
-                <button
-                  key={opt.id}
-                  onClick={() => handleAccent(opt.id)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "7px 10px",
-                    borderRadius: 7,
-                    background: active ? "var(--surface)" : "transparent",
-                    border: active ? `1.5px solid ${opt.primary}` : "1px solid var(--hair-soft)",
-                    cursor: "pointer",
-                    color: "var(--ink)",
-                    fontSize: 12,
-                    fontWeight: active ? 500 : 400,
-                    transition: "all 0.12s",
-                  }}
-                >
-                  <span
-                    style={{
-                      width: 12,
-                      height: 12,
-                      borderRadius: "50%",
-                      background: opt.primary,
-                      flexShrink: 0,
-                    }}
-                  />
-                  {opt.label}
-                </button>
-              );
-            })}
-          </div>
         </div>
       </div>
     </>
