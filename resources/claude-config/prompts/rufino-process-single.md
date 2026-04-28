@@ -130,7 +130,18 @@ Scan the body for:
 - Implicit todos: "hay que X", "necesito Y", "falta Z"
 - Recommended next steps from analysis sections (if augmentation exists)
 
-For each new pendiente, deduplicate against `rufino/_pendientes.md` and append to the "Por hacer" table.
+**LESS GRANULAR**: Only extract main action items — skip micro-details, sub-steps, or highly speculative tasks. If there are 10+ candidate pendientes from one note, prioritize the 5 most concrete and actionable.
+
+For each new pendiente, generate **two fields** in the `_pendientes.md` table:
+- **Title** — short (max 60 chars), 1-line, glanceable. Start with a verb. Example: "Revisar doc APESAU con sistemas y versiones"
+- **Description** — full detail: original wording, context, constraints, acceptance criteria. Can be 1-3 sentences.
+
+Write new rows in **8-col format**:
+```
+| [ ] | <Title> | <Description> | <Proyecto/Arista> | <Personas> | <Deadline> | <Origen> | <Creado> |
+```
+
+Deduplicate against `rufino/_pendientes.md` (match by project+arista AND semantic similarity of title/desc). Skip if already present.
 
 For items in the target marked `[x]` since last processing: move to "Completados".
 

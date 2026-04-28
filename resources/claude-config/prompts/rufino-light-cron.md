@@ -106,7 +106,15 @@ For each `persona/<x>` tag in this file:
 
 ### 3e. Pendientes extraction
 
-Scan this file for inline `- [ ] <desc> #<project>/<arista> @<person> !YYYY-MM-DD` syntax. For each, deduplicate against `rufino/_pendientes.md` and append to "Por hacer". Items marked `[x]` since last process: move to "Completados".
+Scan this file for inline `- [ ] <desc> #<project>/<arista> @<person> !YYYY-MM-DD` syntax.
+
+**LESS GRANULAR**: Only extract main action items — skip micro-details or sub-steps. For each, generate:
+- **Title** — short (max 60 chars), 1-line, glanceable. Start with a verb.
+- **Description** — full inline text as written, with any context.
+
+Write rows in 8-col format: `| [ ] | <Title> | <Description> | <Proyecto/Arista> | <Personas> | <Deadline> | <Origen> | <Creado> |`
+
+Deduplicate against `rufino/_pendientes.md` and append to "Por hacer". Items marked `[x]` since last process: move to "Completados".
 
 ### 3f. **DO NOT rewrite body**
 
