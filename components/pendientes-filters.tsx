@@ -520,13 +520,27 @@ function FilterSelect({
   );
 }
 
-function groupByProject(todos: PendientesWithSection[]): Map<string, PendientesWithSection[]> {
-  const map = new Map<string, PendientesWithSection[]>();
+/** 2-level grouping: project top-level → arista → todos.
+ * Project key is the first segment of `projectArista` (e.g. "umbru" from
+ * "umbru/arquitectura"). Arista is the rest after the first slash, or
+ * "general" if there's no arista. */
+function groupByProject(
+  todos: PendientesWithSection[],
+): Map<string, Map<string, PendientesWithSection[]>> {
+  const map = new Map<string, Map<string, PendientesWithSection[]>>();
   for (const t of todos) {
-    const key = t.projectArista && t.projectArista !== "-" ? t.projectArista : "sin proyecto";
-    const list = map.get(key) ?? [];
+    const raw = t.projectArista && t.projectArista !== "-" ? t.projectArista : "sin proyecto";
+    const slashIdx = raw.indexOf("/");
+    const project = slashIdx >= 0 ? raw.slice(0, slashIdx) : raw;
+    const arista = slashIdx >= 0 ? raw.slice(slashIdx + 1) : "general";
+    let aristaMap = map.get(project);
+    if (!aristaMap) {
+      aristaMap = new Map();
+      map.set(project, aristaMap);
+    }
+    const list = aristaMap.get(arista) ?? [];
     list.push(t);
-    map.set(key, list);
+    aristaMap.set(arista, list);
   }
   return map;
 }
@@ -557,12 +571,14 @@ interface GroupedSectionProps extends EditHandlers {
 function GroupedSection({ title, todos, sortKey, sortDir, section, onDrop, ...edit }: GroupedSectionProps) {
   const groups = useMemo(() => {
     const byProject = groupByProject(todos);
-    for (const list of byProject.values()) {
-      list.sort((a, b) => {
-        const aV = (a[sortKey] || "") as string;
-        const bV = (b[sortKey] || "") as string;
-        return sortDir === "asc" ? aV.localeCompare(bV) : bV.localeCompare(aV);
-      });
+    for (const aristaMap of byProject.values()) {
+      for (const list of aristaMap.values()) {
+        list.sort((a, b) => {
+          const aV = (a[sortKey] || "") as string;
+          const bV = (b[sortKey] || "") as string;
+          return sortDir === "asc" ? aV.localeCompare(bV) : bV.localeCompare(aV);
+        });
+      }
     }
     return [...byProject.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [todos, sortKey, sortDir]);
@@ -586,11 +602,11 @@ function GroupedSection({ title, todos, sortKey, sortDir, section, onDrop, ...ed
         </span>
       </h2>
 
-      {groups.map(([project, list]) => (
+      {groups.map(([project, aristaMap]) => (
         <ProjectGroup
           key={project}
           project={project}
-          todos={list}
+          aristaMap={aristaMap}
           section={section}
           onDrop={onDrop}
           {...edit}
@@ -646,11 +662,11 @@ function DoneSection({
         </span>
       </h2>
 
-      {groups.map(([project, list]) => (
+      {groups.map(([project, aristaMap]) => (
         <ProjectGroup
           key={project}
           project={project}
-          todos={list}
+          aristaMap={aristaMap}
           section="completados"
           onDrop={onDrop}
           dim
@@ -686,14 +702,14 @@ function DoneSection({
 
 function ProjectGroup({
   project,
-  todos,
+  aristaMap,
   section,
   onDrop,
   dim,
   ...edit
 }: EditHandlers & {
   project: string;
-  todos: PendientesWithSection[];
+  aristaMap: Map<string, PendientesWithSection[]>;
   section: SectionKey;
   onDrop: (payload: DragPayload, targetProject: string) => void;
   dim?: boolean;
@@ -702,8 +718,6 @@ function ProjectGroup({
   const [hasInvalidDrag, setHasInvalidDrag] = useState(false);
 
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
-    // Reading dataTransfer.types is allowed during dragover; the payload itself
-    // is only readable on drop. Use the section marker type below to filter.
     const sameSection = e.dataTransfer.types.includes(SECTION_MARKER[section]);
     if (!sameSection) {
       setHasInvalidDrag(true);
@@ -740,21 +754,30 @@ function ProjectGroup({
       ? "1px dashed var(--ink-3)"
       : "none";
 
+  const totalCount = useMemo(
+    () => [...aristaMap.values()].reduce((s, l) => s + l.length, 0),
+    [aristaMap],
+  );
+  const aristaEntries = useMemo(
+    () => [...aristaMap.entries()].sort((a, b) => a[0].localeCompare(b[0])),
+    [aristaMap],
+  );
+
   return (
     <div
-      style={{ marginBottom: 18 }}
+      style={{ marginBottom: 22 }}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
       <div
         style={{
-          fontSize: 11,
+          fontSize: 13,
           letterSpacing: 0.6,
-          fontWeight: 600,
+          fontWeight: 700,
           color: "var(--accent)",
           textTransform: "uppercase",
-          marginBottom: 6,
+          marginBottom: 10,
           fontFamily: "var(--font-mono, monospace)",
         }}
       >
@@ -763,39 +786,66 @@ function ProjectGroup({
           style={{
             color: "var(--ink-3)",
             fontWeight: 400,
-            marginLeft: 6,
+            marginLeft: 8,
             fontFamily: "var(--font-sans)",
             textTransform: "none",
             letterSpacing: 0,
           }}
         >
-          {todos.length}
+          {totalCount}
         </span>
       </div>
       <div
-        className="card"
         style={{
-          overflow: "hidden",
+          paddingLeft: 14,
+          borderLeft: "2px solid var(--hair)",
           outline,
-          outlineOffset: 2,
+          outlineOffset: 4,
           background: isOver ? "var(--accent-wash)" : undefined,
           transition: "outline-color 0.12s, background 0.12s",
         }}
       >
-        {todos.map((t, i) => (
-          <TodoRow
-            key={t.id}
-            todo={t}
-            isLast={i === todos.length - 1}
-            section={section}
-            project={project}
-            dim={dim}
-            editing={edit.editingTodoId === t.id}
-            onStartEdit={() => edit.onStartEdit(t.id)}
-            onCancelEdit={edit.onCancelEdit}
-            onSaveEdit={(fields) => edit.onSaveEdit(t, fields)}
-            onToggleState={(next) => edit.onToggleState(t, next)}
-          />
+        {aristaEntries.map(([arista, todos]) => (
+          <div key={arista} style={{ marginBottom: 14 }}>
+            <div
+              style={{
+                fontSize: 11,
+                letterSpacing: 0.4,
+                fontWeight: 500,
+                color: "var(--ink-2)",
+                marginBottom: 6,
+                textTransform: "lowercase",
+              }}
+            >
+              {arista}
+              <span
+                style={{
+                  color: "var(--ink-3)",
+                  marginLeft: 6,
+                  fontWeight: 400,
+                }}
+              >
+                {todos.length}
+              </span>
+            </div>
+            <div className="card" style={{ overflow: "hidden" }}>
+              {todos.map((t, i) => (
+                <TodoRow
+                  key={t.id}
+                  todo={t}
+                  isLast={i === todos.length - 1}
+                  section={section}
+                  project={project}
+                  dim={dim}
+                  editing={edit.editingTodoId === t.id}
+                  onStartEdit={() => edit.onStartEdit(t.id)}
+                  onCancelEdit={edit.onCancelEdit}
+                  onSaveEdit={(fields) => edit.onSaveEdit(t, fields)}
+                  onToggleState={(next) => edit.onToggleState(t, next)}
+                />
+              ))}
+            </div>
+          </div>
         ))}
       </div>
     </div>
