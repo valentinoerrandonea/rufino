@@ -25,7 +25,7 @@ export type RufinoApi = {
       cb: (chunk: string, kind: "stdout" | "stderr" | "exit") => void,
     ) => () => void;
     claudeConfig: () => Promise<{ installed: string[]; skipped: string[] }>;
-    cron: () => Promise<{ added: boolean; reason?: string }>;
+    cron: () => Promise<{ added: string[]; skipped: string[]; missing: string[] }>;
   };
   vault: {
     pick: () => Promise<

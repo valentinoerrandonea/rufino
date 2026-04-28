@@ -220,6 +220,7 @@ async function installClaudeConfig(): Promise<{
   const vaultPath = cfg.vaultPath ?? join(homedir(), "Documents", "vault");
 
   const map: { from: string; to: string; template?: boolean; exec?: boolean }[] = [
+    // Rules
     {
       from: "rules/rufino.md",
       to: ".claude/rules/common/rufino.md",
@@ -230,10 +231,46 @@ async function installClaudeConfig(): Promise<{
       to: ".claude/rules/common/obsidian-memory.md",
       template: true,
     },
+    // Prompts — daily augmentation, real-time single-file, light-cron,
+    // import plan, lint
     { from: "prompts/rufino-daily.md", to: ".claude/prompts/rufino-daily.md" },
+    {
+      from: "prompts/rufino-process-single.md",
+      to: ".claude/prompts/rufino-process-single.md",
+    },
+    {
+      from: "prompts/rufino-import-plan.md",
+      to: ".claude/prompts/rufino-import-plan.md",
+    },
+    {
+      from: "prompts/rufino-light-cron.md",
+      to: ".claude/prompts/rufino-light-cron.md",
+    },
+    { from: "prompts/rufino-lint.md", to: ".claude/prompts/rufino-lint.md" },
+    // Scripts — daily, real-time, light-cron, import plan, lint
     {
       from: "scripts/rufino-cron.sh",
       to: ".claude/scripts/rufino-cron.sh",
+      exec: true,
+    },
+    {
+      from: "scripts/rufino-process-single.sh",
+      to: ".claude/scripts/rufino-process-single.sh",
+      exec: true,
+    },
+    {
+      from: "scripts/rufino-import-plan.sh",
+      to: ".claude/scripts/rufino-import-plan.sh",
+      exec: true,
+    },
+    {
+      from: "scripts/rufino-light-cron.sh",
+      to: ".claude/scripts/rufino-light-cron.sh",
+      exec: true,
+    },
+    {
+      from: "scripts/rufino-lint-cron.sh",
+      to: ".claude/scripts/rufino-lint-cron.sh",
       exec: true,
     },
   ];
@@ -268,26 +305,64 @@ async function installClaudeConfig(): Promise<{
   return { installed, skipped };
 }
 
-async function installCronEntry(): Promise<{ added: boolean; reason?: string }> {
-  const cronScript = join(homedir(), ".claude/scripts/rufino-cron.sh");
+async function installCronEntry(): Promise<{ added: string[]; skipped: string[]; missing: string[] }> {
+  const home = homedir();
+  // Three cron entries: daily augmentation (22:00), light-cron (02:00),
+  // weekly lint (Sun 03:00). Each is added only if its script exists and
+  // its line isn't already in the crontab. Idempotent — re-running does
+  // nothing new.
+  const entries: { schedule: string; script: string; label: string }[] = [
+    {
+      schedule: "0 22 * * *",
+      script: join(home, ".claude/scripts/rufino-cron.sh"),
+      label: "daily augmentation",
+    },
+    {
+      schedule: "0 2 * * *",
+      script: join(home, ".claude/scripts/rufino-light-cron.sh"),
+      label: "light cron (triples + concepts)",
+    },
+    {
+      schedule: "0 3 * * 0",
+      script: join(home, ".claude/scripts/rufino-lint-cron.sh"),
+      label: "weekly lint",
+    },
+  ];
+
+  const added: string[] = [];
+  const skipped: string[] = [];
+  const missing: string[] = [];
+
+  // Read existing crontab once
+  let existing = "";
   try {
-    await access(cronScript);
+    const { stdout } = await execFile("crontab", ["-l"]);
+    existing = stdout;
   } catch {
-    return { added: false, reason: "rufino-cron.sh not installed" };
+    existing = "";
   }
-  // Check existing crontab
-  try {
-    const { stdout: existing } = await execFile("crontab", ["-l"]);
-    if (existing.includes(cronScript)) {
-      return { added: false, reason: "already present" };
+
+  let pending = existing;
+  for (const entry of entries) {
+    try {
+      await access(entry.script);
+    } catch {
+      missing.push(entry.label);
+      continue;
     }
-    const newCrontab = existing.trimEnd() + `\n0 22 * * * ${cronScript}\n`;
-    await writeTempCrontab(newCrontab);
-  } catch (e) {
-    // No crontab yet
-    await writeTempCrontab(`0 22 * * * ${cronScript}\n`);
+    if (pending.includes(entry.script)) {
+      skipped.push(entry.label);
+      continue;
+    }
+    pending = pending.trimEnd() + `\n${entry.schedule} ${entry.script}\n`;
+    added.push(entry.label);
   }
-  return { added: true };
+
+  if (added.length > 0) {
+    await writeTempCrontab(pending);
+  }
+
+  return { added, skipped, missing };
 }
 
 async function writeTempCrontab(content: string): Promise<void> {
@@ -438,8 +513,22 @@ async function initVault(rootPath: string): Promise<{
 }> {
   const created: string[] = [];
   const rufinoDir = join(rootPath, "rufino");
+  const metaDir = join(rootPath, "_meta");
+  const conceptosDir = join(rootPath, "conceptos");
   await mkdir(rufinoDir, { recursive: true });
   await mkdir(join(rufinoDir, "_people"), { recursive: true });
+  await mkdir(metaDir, { recursive: true });
+  await mkdir(conceptosDir, { recursive: true });
+
+  // Copy the relationship vocabulary from bundled resources if missing.
+  // The prompts (real-time + light-cron + lint) all read it, so it must
+  // exist before any cron runs.
+  const vocabSrc = join(bundledClaudeConfigDir(), "meta", "relationship-vocab.md");
+  const vocabDst = join(metaDir, "relationship-vocab.md");
+  if (existsSync(vocabSrc) && !existsSync(vocabDst)) {
+    await copyFile(vocabSrc, vocabDst);
+    created.push(vocabDst);
+  }
 
   const seedFiles: { path: string; content: string }[] = [
     { path: join(rufinoDir, "_index.md"), content: "# Index\n\n_(notas procesadas aparecerán acá)_\n" },
@@ -461,6 +550,18 @@ async function initVault(rootPath: string): Promise<{
     {
       path: join(rufinoDir, "_people.md"),
       content: "# People\n\n_(personas mencionadas en notas aparecerán acá)_\n",
+    },
+    {
+      path: join(rufinoDir, "_tags.md"),
+      content: "# Tags\n\n_(taxonomía emergente — se actualiza automáticamente)_\n",
+    },
+    {
+      path: join(rufinoDir, "_processing-log.md"),
+      content: "# Processing log\n\n_(cada corrida del procesador queda acá)_\n",
+    },
+    {
+      path: join(metaDir, "log.md"),
+      content: "# Log de actividad del vault\n\n_(append-only, leído por el dashboard `/actividad`)_\n",
     },
   ];
   for (const f of seedFiles) {
