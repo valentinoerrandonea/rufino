@@ -36,6 +36,15 @@ export type RawNote = {
 export type Todo = {
   id: string;
   state: "todo" | "done";
+  /** Short, glanceable headline. Falls back to `desc` if not present
+   * (legacy todos that pre-date the title/description split). */
+  title?: string;
+  /** Longer detail for the todo. New schema: extracted automatically by
+   * the processor, editable later. Legacy todos store the whole string
+   * in `desc`. */
+  description?: string;
+  /** Legacy field kept for backwards compat. New code should prefer
+   * `title` (with `description` as detail). When reading: title ?? desc. */
   desc: string;
   projectArista: string;
   people: string[];
