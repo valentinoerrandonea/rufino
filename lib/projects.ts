@@ -5,6 +5,20 @@ import { VAULT_PATH, RUFINO_PATH, readPeople, readTodos } from "./vault";
 
 const PROJECTS_PATH = path.join(VAULT_PATH, "proyectos");
 
+/**
+ * Resolve the overview file for a project. The current convention is
+ * `proyectos/<id>/<id>Overview.md` (so wikilinks like [[umbruOverview]]
+ * resolve by basename). Older vaults used `proyectos/<id>/overview.md`,
+ * so we fall back to that for backwards compat.
+ */
+async function readProjectOverviewRaw(id: string): Promise<string | null> {
+  const newConvention = path.join(PROJECTS_PATH, id, `${id}Overview.md`);
+  const legacy = path.join(PROJECTS_PATH, id, "overview.md");
+  const raw = await readSafe(newConvention);
+  if (raw != null) return raw;
+  return readSafe(legacy);
+}
+
 export type EntryPreview = {
   id: string;
   title: string;
@@ -176,8 +190,7 @@ export async function listProjects(): Promise<ProjectSummary[]> {
 
   const projects: ProjectSummary[] = [];
   for (const id of dirIds) {
-    const overviewPath = path.join(PROJECTS_PATH, id, "overview.md");
-    const raw = await readSafe(overviewPath);
+    const raw = await readProjectOverviewRaw(id);
     if (!raw) continue;
 
     const { data, content } = matter(raw);
@@ -228,8 +241,7 @@ export async function listProjects(): Promise<ProjectSummary[]> {
 }
 
 export async function readProjectOverview(id: string): Promise<ProjectDetail | null> {
-  const overviewPath = path.join(PROJECTS_PATH, id, "overview.md");
-  const raw = await readSafe(overviewPath);
+  const raw = await readProjectOverviewRaw(id);
   if (!raw) return null;
 
   const { data, content } = matter(raw);
