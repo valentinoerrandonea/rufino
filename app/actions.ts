@@ -4,7 +4,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { writeRawNote, appendTodo, writePersonFile, setStatus, VAULT_PATH, RUFINO_PATH } from "@/lib/vault";
+import { writeRawNote, appendTodo, writePersonFile, setStatus, VAULT_PATH, RUFINO_PATH, readPeople } from "@/lib/vault";
+import { listProjects } from "@/lib/projects";
 import {
   updateTodoFieldsInFile,
   updateTodoInFile,
@@ -483,4 +484,151 @@ export async function discardImport(id: string): Promise<{ ok: true } | { ok: fa
       error: e instanceof Error ? e.message : "Error al descartar",
     };
   }
+}
+
+/**
+ * Update a project's metadata (name, description, tags) in its overview file.
+ * Writes to `proyectos/<projectId>/<projectId>Overview.md` (new convention)
+ * with fallback to `proyectos/<projectId>/overview.md` (legacy).
+ */
+export async function updateProjectMeta(params: {
+  projectId: string;
+  name: string;
+  description: string;
+  tags: string[];
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { projectId, name, description, tags } = params;
+
+  // Validate no path traversal
+  const safeId = projectId.replace(/[^a-zA-Z0-9_-]/g, "");
+  if (!safeId || safeId !== projectId) {
+    return { ok: false, error: "ID de proyecto inválido" };
+  }
+
+  const newConventionPath = path.join(VAULT_PATH, "proyectos", safeId, `${safeId}Overview.md`);
+  const legacyPath = path.join(VAULT_PATH, "proyectos", safeId, "overview.md");
+
+  let filePath = newConventionPath;
+  try {
+    await fs.access(newConventionPath);
+  } catch {
+    try {
+      await fs.access(legacyPath);
+      filePath = legacyPath;
+    } catch {
+      return { ok: false, error: `No se encontró el archivo overview del proyecto "${safeId}"` };
+    }
+  }
+
+  const raw = await fs.readFile(filePath, "utf-8");
+  const today = new Date().toISOString().split("T")[0];
+
+  // Parse frontmatter and body
+  const fmMatch = raw.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+  let newContent: string;
+
+  if (fmMatch) {
+    const fm = fmMatch[1];
+    const body = fmMatch[2];
+
+    // Update or add tags field
+    let newFm = fm;
+    const tagsYaml = tags.length > 0
+      ? `tags:\n${tags.map((t) => `  - ${t}`).join("\n")}`
+      : "tags: []";
+
+    if (/^tags:/m.test(newFm)) {
+      // Replace existing tags block (may be multi-line)
+      newFm = newFm.replace(/^tags:[\s\S]*?(?=\n[a-z]|$)/m, tagsYaml);
+    } else {
+      newFm = `${tagsYaml}\n${newFm}`;
+    }
+
+    // Update updated field
+    if (/^updated:/m.test(newFm)) {
+      newFm = newFm.replace(/^updated:.*$/m, `updated: ${today}`);
+    } else {
+      newFm = `${newFm.trimEnd()}\nupdated: ${today}`;
+    }
+
+    // Update the h1 in the body (name change)
+    const updatedBody = body.replace(/^#\s+.+$/m, `# ${name}`);
+
+    newContent = `---\n${newFm}\n---\n${updatedBody}`;
+  } else {
+    // No frontmatter — create one
+    const tagsYaml = tags.length > 0
+      ? `tags:\n${tags.map((t) => `  - ${t}`).join("\n")}`
+      : "tags: []";
+    const updatedBody = raw.replace(/^#\s+.+$/m, `# ${name}`);
+    newContent = `---\n${tagsYaml}\ncreated: ${today}\nupdated: ${today}\n---\n${updatedBody}`;
+  }
+
+  await fs.writeFile(filePath, newContent, "utf-8");
+  revalidatePath(`/projects/${safeId}`);
+  revalidatePath("/projects");
+  return { ok: true };
+}
+
+/**
+ * Return mentionables (people names + project ids) for the @mention dropdown.
+ */
+export async function listMentionables(): Promise<{ people: string[]; projects: string[] }> {
+  const [people, projects] = await Promise.all([
+    readPeople(),
+    listProjects(),
+  ]);
+  return {
+    people: people.map((p) => p.name),
+    projects: projects.map((p) => p.id),
+  };
+}
+
+/**
+ * Return all project/arista tags for the tag dropdown.
+ * Format: "proyecto/arista" (e.g. "umbru/arquitectura").
+ * Scans _tags.md and falls back to scanning note tags in rufino/.
+ */
+export async function listProjectTags(): Promise<string[]> {
+  const tagsFile = path.join(VAULT_PATH, "rufino", "_tags.md");
+  const raw = await fs.readFile(tagsFile, "utf-8").catch(() => "");
+
+  const tags = new Set<string>();
+
+  // Extract "### proyecto/arista" headings from _tags.md
+  const headingMatches = raw.matchAll(/^###\s+([a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+)/gm);
+  for (const match of headingMatches) {
+    tags.add(match[1]);
+  }
+
+  // Also scan note tags in rufino/ for proyecto/<project>/<arista> patterns
+  const rufinoPath = RUFINO_PATH;
+  const walkForTags = async (dir: string): Promise<void> => {
+    const entries = await fs.readdir(dir, { withFileTypes: true }).catch(() => []);
+    for (const e of entries) {
+      if (e.name.startsWith("_")) continue;
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) {
+        await walkForTags(p);
+      } else if (e.isFile() && e.name.endsWith(".md")) {
+        const content = await fs.readFile(p, "utf-8").catch(() => "");
+        const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+        if (!fmMatch) continue;
+        const tagLines = fmMatch[1].matchAll(/^\s*-\s+proyecto\/([^/\n]+)\/([^/\n]+)/gm);
+        for (const tl of tagLines) {
+          tags.add(`${tl[1]}/${tl[2]}`);
+        }
+      }
+    }
+  };
+
+  await walkForTags(rufinoPath);
+
+  // Also list direct project folders as bare "project" entries
+  const projects = await listProjects();
+  for (const p of projects) {
+    tags.add(p.id);
+  }
+
+  return Array.from(tags).sort();
 }
