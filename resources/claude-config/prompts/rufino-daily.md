@@ -223,12 +223,20 @@ After all notes processed, scan each newly-processed note (both original content
 - **Unresolved decisions** that require action
 - **Things the user said they want to try or evaluate**
 
-For each pendiente, extract:
-- **Description** (short, actionable, one line)
+**LESS GRANULAR**: Only extract main action items — skip micro-details, sub-steps, or highly speculative tasks. If there are 10+ candidate pendientes from one note, prioritize the 5 most concrete and actionable.
+
+For each pendiente, extract **two fields**:
+- **Title** — short (max 60 chars), 1-line, glanceable. Start with a verb. Example: "Revisar doc APESAU con sistemas y versiones"
+- **Description** — full detail: original wording, context, constraints. Can be 1-3 sentences.
 - **Proyecto/Arista** (from the note's project/arista)
 - **Personas** (from the note's persona tags, if relevant to this pendiente)
 - **Deadline** (if mentioned explicitly in the note, otherwise `-`)
 - **Origen** (wikilink to the source note)
+
+Write new rows in **8-col format**:
+```
+| [ ] | <Title> | <Description> | <Proyecto/Arista> | <Personas> | <Deadline> | <Origen> | <Creado> |
+```
 
 ### 5. Parse inline pendientes syntax
 
@@ -284,15 +292,15 @@ updated: YYYY-MM-DD
 
 ## Por hacer
 
-| Estado | Pendiente | Proyecto/Arista | Personas | Deadline | Origen | Creado |
-|--------|-----------|-----------------|----------|----------|--------|--------|
-| [ ] | ... | ... | ... | ... | ... | ... |
+| Estado | Title | Description | Proyecto/Arista | Personas | Deadline | Origen | Creado |
+|--------|-------|-------------|-----------------|----------|----------|--------|--------|
+| [ ] | ... | ... | ... | ... | ... | ... | ... |
 
 ## En progreso
 
-| Estado | Pendiente | Proyecto/Arista | Personas | Deadline | Origen | Creado |
-|--------|-----------|-----------------|----------|----------|--------|--------|
-| [/] | ... | ... | ... | ... | ... | ... |
+| Estado | Title | Description | Proyecto/Arista | Personas | Deadline | Origen | Creado |
+|--------|-------|-------------|-----------------|----------|----------|--------|--------|
+| [/] | ... | ... | ... | ... | ... | ... | ... |
 
 ## Completados
 

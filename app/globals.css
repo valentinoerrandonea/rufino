@@ -18,9 +18,9 @@
   --ink-dim: #c5beb2;
   --hair: #e6dfd2;
   --hair-soft: #efeadf;
-  --accent: #b06836;
-  --accent-2: #c47a48;
-  --accent-wash: rgba(176, 104, 54, 0.08);
+  --accent: #6b7a4b;
+  --accent-2: #859460;
+  --accent-wash: rgba(107, 122, 75, 0.08);
   --green: #5b8a5a;
   --amber: #c49530;
   --red: #b4493c;
@@ -40,10 +40,9 @@
   --ink-dim: #4e4a44;
   --hair: #3a3632;
   --hair-soft: #322f2b;
-  /* Accent stays constant across themes (set in :root and tweaks panel) */
-  --accent: #b06836;
-  --accent-2: #c47a48;
-  --accent-wash: rgba(176, 104, 54, 0.12);
+  --accent: #6b7a4b;
+  --accent-2: #859460;
+  --accent-wash: rgba(107, 122, 75, 0.12);
   --green: #7aa878;
   --amber: #d9b05a;
   --red: #d06b5e;
@@ -64,9 +63,9 @@
   --ink-dim: #c5beb2;
   --hair: #e6dfd2;
   --hair-soft: #efeadf;
-  --accent: #b06836;
-  --accent-2: #c47a48;
-  --accent-wash: rgba(176, 104, 54, 0.08);
+  --accent: #6b7a4b;
+  --accent-2: #859460;
+  --accent-wash: rgba(107, 122, 75, 0.08);
   --green: #5b8a5a;
   --amber: #c49530;
   --red: #b4493c;

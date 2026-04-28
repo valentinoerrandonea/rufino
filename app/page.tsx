@@ -1,4 +1,6 @@
 import { readProcessedNotes, readTodos, readPeople, readRawNotes } from "@/lib/vault";
+import { listConcepts } from "@/lib/concepts";
+import { readGraph } from "@/lib/triples";
 import { Section, StatCard, relTime, deadlineStatus } from "@/components/atoms";
 import { TodoCheckbox } from "@/components/todo-checkbox";
 import Link from "next/link";
@@ -6,11 +8,13 @@ import Link from "next/link";
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [notes, todos, people, rawNotes] = await Promise.all([
+  const [notes, todos, people, rawNotes, concepts, graph] = await Promise.all([
     readProcessedNotes(),
     readTodos(),
     readPeople(),
     readRawNotes(),
+    listConcepts(),
+    readGraph(),
   ]);
 
   const activeTodos = todos.porHacer;
@@ -124,7 +128,7 @@ export default async function HomePage() {
       </div>
 
       <Section title="Un vistazo">
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 32 }}>
           <StatCard label="Notas" value={notes.length} sub="procesadas" href="/notes" />
           <StatCard
             label="Pendientes"
@@ -135,6 +139,48 @@ export default async function HomePage() {
           <StatCard label="Personas" value={people.length} sub="en el roster" href="/people" />
           <StatCard label="Proyectos" value={projectCount} sub="activos" />
         </div>
+
+        {/* Conceptos — top 10 por menciones */}
+        {concepts.length > 0 && (
+          <div style={{ marginBottom: 32 }}>
+            <h3 style={{ fontSize: 12, fontWeight: 500, color: "var(--accent)", textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 12, margin: "0 0 12px 0" }}>
+              Conceptos
+            </h3>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {concepts.slice(0, 10).map((c) => (
+                <span key={c.id} className="chip" style={{ cursor: "pointer" }}>
+                  {c.name}
+                  <span style={{ fontSize: 10, color: "var(--ink-dim)", marginLeft: 2 }}>
+                    ({c.mentionsCount})
+                  </span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Conexiones — overview del grafo */}
+        {graph.nodes.length > 0 && (
+          <div>
+            <h3 style={{ fontSize: 12, fontWeight: 500, color: "var(--accent)", textTransform: "uppercase", letterSpacing: 0.6, margin: "0 0 12px 0" }}>
+              Conexiones
+            </h3>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
+              <div className="card" style={{ padding: "12px 16px" }}>
+                <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 4 }}>Nodos en el grafo</div>
+                <div style={{ fontSize: 18, fontWeight: 500, color: "var(--accent)" }}>
+                  {graph.nodes.length}
+                </div>
+              </div>
+              <div className="card" style={{ padding: "12px 16px" }}>
+                <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 4 }}>Relaciones</div>
+                <div style={{ fontSize: 18, fontWeight: 500, color: "var(--accent)" }}>
+                  {graph.edges.length}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </Section>
 
       <Section title="Para atender">

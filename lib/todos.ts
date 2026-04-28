@@ -50,6 +50,15 @@ function splitFrontmatter(raw: string): { frontmatter: string; body: string } {
   return { frontmatter, body };
 }
 
+/**
+ * Detect whether an active row uses the new 8-col format.
+ * Legacy (7): Estado | Pendiente | Proyecto·Arista | Personas | Deadline | Origen | Creado
+ * New   (8):  Estado | Title | Description | Proyecto·Arista | Personas | Deadline | Origen | Creado
+ */
+function isNewFormat(cols: string[]): boolean {
+  return cols.length >= 8;
+}
+
 function rowMatchesTodo(line: string, origin: string, desc: string, isCompletados: boolean): boolean {
   if (!line.trim().startsWith("|")) return false;
   const cols = line
@@ -64,7 +73,10 @@ function rowMatchesTodo(line: string, origin: string, desc: string, isCompletado
     return rowDesc.trim() === desc.trim() && cleanOrigin === origin.trim();
   } else {
     if (cols.length < 6) return false;
-    const [, rowDesc, , , , rowOrigin] = cols;
+    // In new 8-col format, origin is at index 6; in legacy 7-col, origin is at index 5.
+    // The desc/title is always at index 1 (after state).
+    const rowDesc = cols[1];
+    const rowOrigin = isNewFormat(cols) ? cols[6] : cols[5];
     const cleanOrigin = rowOrigin.replace(/\[\[|\]\]/g, "").trim();
     return rowDesc.trim() === desc.trim() && cleanOrigin === origin.trim();
   }
@@ -79,7 +91,21 @@ function extractRowData(line: string, isCompletados: boolean): Record<string, st
   if (isCompletados) {
     const [desc, projectArista, people, origin] = cols;
     return { desc: desc ?? "", projectArista: projectArista ?? "", people: people ?? "-", origin: origin ?? "-", created: "" };
+  } else if (isNewFormat(cols)) {
+    // New 8-col: Estado | Title | Description | Proyecto·Arista | Personas | Deadline | Origen | Creado
+    const [, title, description, projectArista, people, deadline, origin, created] = cols;
+    return {
+      desc: title ?? "",
+      title: title ?? "",
+      description: description ?? "",
+      projectArista: projectArista ?? "",
+      people: people ?? "-",
+      deadline: deadline ?? "-",
+      origin: origin ?? "-",
+      created: created ?? "",
+    };
   } else {
+    // Legacy 7-col: Estado | Pendiente | Proyecto·Arista | Personas | Deadline | Origen | Creado
     const [, desc, projectArista, people, deadline, origin, created] = cols;
     return {
       desc: desc ?? "",
@@ -94,11 +120,17 @@ function extractRowData(line: string, isCompletados: boolean): Record<string, st
 
 function buildActiveRow(data: Record<string, string>, nextState: NextState): string {
   const marker = STATE_MARKERS[nextState];
+  // Preserve new 8-col format if the row had title+description
+  if (data.title !== undefined && data.description !== undefined) {
+    return `| ${marker} | ${data.title} | ${data.description} | ${data.projectArista} | ${data.people} | ${data.deadline ?? "-"} | ${data.origin} | ${data.created} |`;
+  }
   return `| ${marker} | ${data.desc} | ${data.projectArista} | ${data.people} | ${data.deadline ?? "-"} | ${data.origin} | ${data.created} |`;
 }
 
 function buildCompletedRow(data: Record<string, string>, today: string): string {
-  return `| ${data.desc} | ${data.projectArista} | ${data.people} | ${data.origin} | ${today} |`;
+  // Use title as the display desc in Completados (either format)
+  const displayDesc = data.title ?? data.desc;
+  return `| ${displayDesc} | ${data.projectArista} | ${data.people} | ${data.origin} | ${today} |`;
 }
 
 function findSectionBounds(lines: string[], sectionName: string): { start: number; end: number } | null {
@@ -185,9 +217,12 @@ export async function updateTodoProjectInFile(opts: {
   const lines = body.split("\n");
 
   // Try matching as an active row first, then as a completados row.
-  // Active rows have 7 columns (state, desc, projectArista, people, deadline, origin, created),
-  // completados rows have 5 (desc, projectArista, people, origin, completed).
-  // The projectArista column lives at split index 3 for active, index 2 for completados.
+  // Legacy active rows (7 col): Estado | Pendiente | Proyecto·Arista | Personas | Deadline | Origen | Creado
+  //   → split-pipe index 3 is projectArista
+  // New active rows (8 col): Estado | Title | Description | Proyecto·Arista | Personas | Deadline | Origen | Creado
+  //   → split-pipe index 4 is projectArista
+  // Completados rows (5 col): Pendiente | Proyecto·Arista | Personas | Origen | Completado
+  //   → split-pipe index 2 is projectArista
   let updated = false;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -199,7 +234,9 @@ export async function updateTodoProjectInFile(opts: {
     if (isCompletados === null) continue;
 
     const parts = line.split("|");
-    const idx = isCompletados ? 2 : 3;
+    // Determine projectArista column index based on format
+    const cols = parts.filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
+    const idx = isCompletados ? 2 : isNewFormat(cols) ? 4 : 3;
     if (idx >= parts.length - 1) continue;
     parts[idx] = ` ${sanitized} `;
     lines[i] = parts.join("|");
@@ -252,14 +289,22 @@ export async function updateTodoFieldsInFile(opts: {
     if (isCompletados === null) continue;
 
     const parts = line.split("|");
-    // Active row layout (split indices):
-    //   1 state | 2 desc | 3 projectArista | 4 people | 5 deadline | 6 origin | 7 created
+    // Active row layout (split-pipe indices, 1-based after leading |):
+    //   Legacy (7-col): 1 state | 2 desc | 3 projectArista | 4 people | 5 deadline | 6 origin | 7 created
+    //   New (8-col):    1 state | 2 title | 3 description | 4 projectArista | 5 people | 6 deadline | 7 origin | 8 created
     // Completados row layout:
     //   1 desc | 2 projectArista | 3 people | 4 origin | 5 completed
+    const cols = parts.filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
     if (isCompletados) {
       if (parts.length < 7) continue;
       parts[1] = ` ${newDesc} `;
       parts[3] = ` ${newPeople} `;
+    } else if (isNewFormat(cols)) {
+      // 8-col: update title (index 2), people (index 5), deadline (index 6)
+      if (parts.length < 10) continue;
+      parts[2] = ` ${newDesc} `;
+      parts[5] = ` ${newPeople} `;
+      parts[6] = ` ${newDeadline} `;
     } else {
       if (parts.length < 9) continue;
       parts[2] = ` ${newDesc} `;

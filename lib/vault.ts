@@ -36,6 +36,15 @@ export type RawNote = {
 export type Todo = {
   id: string;
   state: "todo" | "done";
+  /** Short, glanceable headline (new 8-col format). Falls back to `desc`
+   * if not present (legacy todos that pre-date the title/description split). */
+  title?: string;
+  /** Longer detail (new 8-col format). New schema: extracted automatically
+   * by the processor, editable later. Legacy todos store the whole string
+   * in `desc`. */
+  description?: string;
+  /** Legacy field kept for backwards compat. New code should prefer
+   * `title` (with `description` as detail). When reading: title ?? desc. */
   desc: string;
   projectArista: string;
   people: string[];
@@ -193,7 +202,8 @@ export async function readTodos(): Promise<{ porHacer: Todo[]; completados: Todo
     return rows
       .map((line, i): Todo | null => {
         const cols = line.split("|").map((c) => c.trim()).filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
-        // Por hacer/En progreso: Estado | Pendiente | Proyecto/Arista | Personas | Deadline | Origen | Creado (7 cols)
+        // Legacy Por hacer/En progreso: Estado | Pendiente | Proyecto/Arista | Personas | Deadline | Origen | Creado (7 cols)
+        // New Por hacer/En progreso: Estado | Title | Description | Proyecto/Arista | Personas | Deadline | Origen | Creado (8 cols)
         // Completados: Pendiente | Proyecto/Arista | Personas | Origen | Completado (5 cols)
         const minCols = name === "Completados" ? 5 : 7;
         if (cols.length < minCols) return null;
@@ -212,15 +222,34 @@ export async function readTodos(): Promise<{ porHacer: Todo[]; completados: Todo
             completed,
           };
         }
-        const [state, desc, projectArista, people, deadline, origin, created] = cols;
-        // Legacy "[/]" (in-progress) rows are folded into "todo" because
-        // the dashboard only models two states now.
+        // Support both legacy 7-col format and new 8-col format with title+description:
+        // Legacy (7):  Estado | Pendiente | Proyecto/Arista | Personas | Deadline | Origen | Creado
+        // New (8):     Estado | Title | Description | Proyecto/Arista | Personas | Deadline | Origen | Creado
         const stateMap: Record<string, Todo["state"]> = {
           "[ ]": "todo",
           "[/]": "todo",
           "[x]": "done",
           "[X]": "done",
         };
+        if (cols.length >= 8) {
+          // New 8-col format
+          const [state, title, description, projectArista, people, deadline, origin, created] = cols;
+          const cleanOrigin = origin.replace(/\[\[|\]\]/g, "").trim();
+          return {
+            id: stableId(cleanOrigin, title),
+            state: stateMap[state] || "todo",
+            title,
+            description,
+            desc: title, // keep desc as title for backward compat with filters/search
+            projectArista,
+            people: people.split(/[\s,]+/).filter((p) => p && p !== "-"),
+            deadline: deadline === "-" ? null : deadline,
+            origin: cleanOrigin,
+            created,
+          };
+        }
+        // Legacy 7-col format
+        const [state, desc, projectArista, people, deadline, origin, created] = cols;
         const cleanOrigin = origin.replace(/\[\[|\]\]/g, "").trim();
         return {
           id: stableId(cleanOrigin, desc),
@@ -330,13 +359,20 @@ export async function appendTodo(todo: {
   people: string[];
   deadline: string | null;
   priority?: "alta" | "media" | "baja";
+  /** Short glanceable title for new 8-col format. If absent, legacy 7-col row is written. */
+  title?: string;
+  /** Detailed description for new 8-col format. */
+  description?: string;
 }): Promise<void> {
   const file = path.join(RUFINO_PATH, "_pendientes.md");
   const raw = (await readSafe(file)) || "";
   const today = new Date().toISOString().split("T")[0];
   const personas = todo.people.length ? todo.people.map((p) => `@${p}`).join(" ") : "-";
   const deadline = todo.deadline || "-";
-  const row = `| [ ] | ${todo.desc} | ${todo.projectArista} | ${personas} | ${deadline} | captura manual | ${today} |`;
+  // Write 8-col format when title+description provided, else legacy 7-col
+  const row = todo.title && todo.description
+    ? `| [ ] | ${todo.title} | ${todo.description} | ${todo.projectArista} | ${personas} | ${deadline} | captura manual | ${today} |`
+    : `| [ ] | ${todo.desc} | ${todo.projectArista} | ${personas} | ${deadline} | captura manual | ${today} |`;
 
   // Insert after "## Por hacer" header row (find the row with ---|--- under the header)
   const lines = raw.split("\n");
