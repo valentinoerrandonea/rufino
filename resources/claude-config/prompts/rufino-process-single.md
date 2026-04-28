@@ -46,11 +46,14 @@ Read the target's frontmatter. The processing depth depends on where the file li
 | Target location | Scope |
 |---|---|
 | `rufino/<filename>.md` (raw inbox) | FULL: tags + augmentation rewrite + move to `rufino/<project>/<type>/` + indices |
-| `rufino/<project>/<type>/<file>.md` (already organized) | LIGHT: ensure tags + triples + concepts + pendientes; refresh augmentation if body changed |
+| `rufino/sources/<file>.md` (imported document) | FULL: augmentation rewrite (preserve `## Contenido original`, generate Resumen/Análisis/Implicaciones above it). Do NOT move — sources stay in /sources |
+| `rufino/<project>/<type>/<file>.md` (already organized) | FULL if missing augmentation sections (Resumen + Análisis + Implicaciones + Contexto + Conexiones), else LIGHT (just refresh tags/triples/concepts/pendientes) |
 | `proyectos/**/*.md` | LIGHT: ensure triples + concept promotion + persona detection + log; do NOT add augmentation rewrite (Val wrote this directly) |
 | `sesiones/*.md` | LIGHT: triples + persona detection + log |
-| `conceptos/*.md` | NONE: concept pages are derived data; do not augment |
+| `conceptos/*.md` | CONCEPT-LIGHT: generate triples from wikilinks in body, detect personas, refresh `## Definición` if too short, find related concepts and link to them. NO Resumen/Análisis/Implicaciones rewrite (they don't apply to glossary entries) |
 | `<top-level>.md` (perfil/preferencias/stack/etc) | LIGHT: triples + concept promotion |
+
+**FULL augmentation idempotency**: scan the body for the markers `## Resumen estructurado`, `## Análisis`, `## Implicaciones`, `## Contexto`, `## Conexiones` (note: Spanish, with accents). If ALL FIVE are present and well-formed, this run is LIGHT (don't rewrite). If ANY are missing, this is FULL — generate the missing sections, preserving the original body and any sections already present. **Never duplicate sections** — if `## Resumen estructurado` exists once, don't add another.
 
 LIGHT and FULL share the same triples + concept + persona + pendientes + log work. The difference is whether to rewrite the body with augmentation.
 
@@ -94,34 +97,74 @@ Patch the frontmatter `triples:` block:
 - Use inline format: `  - { r: <relation>, o: <slug> }`
 - Use just the basename slug as `o` (no path, no `.md`)
 
-## Step 7: Concept promotion
+## Step 7: Concept promotion + enrichment
 
 Tally `concepto/<x>` tags for the target:
 - For each concepto in the target's tags, count global mentions (across all notes).
-- If count ≥ 2 AND `conceptos/<slug>.md` doesn't exist: create it with a 2-3 sentence definition based on your knowledge + Val's project context (if you don't know the concept, write "Stub — agregar definición.").
+- If count ≥ 2 AND `conceptos/<slug>.md` doesn't exist: **create it** with a deep definition (NOT 2-3 sentences — see template).
+- If `conceptos/<slug>.md` ALREADY exists AND its `## Definición` body is shorter than 600 chars OR the file has zero `triples:` block: **enrich it** — extend the definition, add cross-references to related concepts, generate triples.
 
-Concept pages have:
+### Concept page template (deep version)
+
 ```yaml
 ---
 tags:
   - tipo/concepto
   - concepto/<slug>
+  - tema/<broad-area>
 created: <today>
 updated: <today>
+triples:
+  - { r: references, o: <related-concept-1> }
+  - { r: refines, o: <related-concept-2> }
+  - { r: depends-on, o: <related-concept-3> }
 ---
 
 # <Title>
 
 ## Definición
 
-<2-3 sentences>
+<200-400 word definition. THREE paragraphs:
+ 1) WHAT it is — precise definition, the canonical meaning + key distinguishing properties.
+ 2) WHY it matters — what problem it solves, what it enables, what changes when you adopt it.
+ 3) HOW it relates to nearby concepts — explicit `[[wikilink]]` to related concepts in `conceptos/`. Example: "Se relaciona estrechamente con [[autonomia-supervisada]] (su principio rector) y se opone a [[ui-tradicional]] donde el usuario ejecuta cada paso."
+>
 
-## Menciones
+## Aparece en
 
-El dashboard auto-descubre las menciones via tag scan.
+<3-6 concrete bullet points: notas / decisiones / aprendizajes del vault donde aparece este concepto, con wikilink + 1-line de cómo se usa allí. Ej:
+- [[a2p-paradigm-en]] — principio rector definitorio del modelo en Capa 4
+- [[decisionDemandRequestSchemaV2]] — usado para validar el matching pipeline
+>
 
 ## Relacionado
+
+<lista de 2-5 wikilinks a otros concepts (de `conceptos/`) sin descripción. Ej:
+- [[ai-native-design]]
+- [[cognitive-economy]]
+- [[intelligent-delegation]]
+>
 ```
+
+### Cross-referencing entre concepts
+
+Antes de crear/enriquecer un concept page:
+1. **Listá** los concepts ya existentes con `Glob /Users/val/Files/vaultlentino/conceptos/*.md`.
+2. **Identificá** cuáles están relacionados con el target. Tres tipos de relación:
+   - **Hermanos** — pertenecen al mismo paradigma/familia (ej. todos los del A2P paradigm: autonomia-supervisada, cognitive-economy, intelligent-delegation se relacionan con a2p-paradigm)
+   - **Refinamientos** — uno es caso específico del otro (`structured-input` refines `conversational-ui`)
+   - **Dependencias** — uno requiere el otro para tener sentido (`embeddings` depends-on `vector-search`)
+3. **Linkeá** vía wikilink en el body Y vía typed triple en frontmatter. **Nunca** dejes un cross-reference solo en el body sin su triple correspondiente — el grafo del dashboard depende de los triples, no de los wikilinks plain.
+
+### Idempotency
+
+Si la concept page existe Y tiene definición ≥600 chars Y tiene ≥2 triples: skip.
+Si existe pero falta cualquiera de los dos: enrich (preservando lo existente, agregando lo faltante).
+NUNCA reescribas una definición ya buena por otra peor.
+
+### Si no conocés el concepto
+
+Si genuinamente no tenés conocimiento del término (es jerga interna de Val, abreviatura específica de un proyecto, etc.): escribí "**Stub — agregar definición.**" como `## Definición`. Pero antes intentá inferir desde el contexto de las notas que lo mencionan — usá `Grep` en `/Users/val/Files/vaultlentino` por el slug y leé los párrafos donde aparece.
 
 ## Step 8: Pendientes extraction
 
