@@ -6,6 +6,11 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Sigu
 
 ## [Unreleased]
 
+## [v0.4.4] — 2026-04-28
+
+### Fixed
+- **Detail page de notas detecta markers de augmentation en español**: el prompt actual emite top-level `## Resumen estructurado` / `## Análisis` / `## Implicaciones` / `## Contexto` / `## Conexiones` sin wrapper, pero `app/notes/[id]/page.tsx` seguía buscando los markers ingleses viejos (`## Rufino Augmentation` / `## Context` / `## Connections`). Notas procesadas con la convención actual aparecían vacías. `findFirst()` probe legacy + Spanish anchors en orden — para legacy strip wrapper, para Spanish keep heading (PR #21).
+
 ## [v0.4.3] — 2026-04-28
 
 ### Added
@@ -78,7 +83,8 @@ Release multi-feature ejecutado vía orquestación multi-agente (5 worktrees par
 - File system as database — sin DB ni API layer separado
 - Status state machine: `queued → processing → processed`
 
-[Unreleased]: https://github.com/valentinoerrandonea/rufino/compare/v0.4.3...HEAD
+[Unreleased]: https://github.com/valentinoerrandonea/rufino/compare/v0.4.4...HEAD
+[v0.4.4]: https://github.com/valentinoerrandonea/rufino/releases/tag/v0.4.4
 [v0.4.3]: https://github.com/valentinoerrandonea/rufino/releases/tag/v0.4.3
 [v0.4.2]: https://github.com/valentinoerrandonea/rufino/releases/tag/v0.4.2
 [v0.4.1]: https://github.com/valentinoerrandonea/rufino/releases/tag/v0.4.1
