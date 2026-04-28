@@ -138,6 +138,87 @@ export function planImport(inboxFilePath: string, planJsonPath: string): void {
 }
 
 /**
+ * Synchronously generate a 1-3 sentence description for a pendiente given
+ * its title and project context. Used by the create-todo server action
+ * when the user submits without filling description manually.
+ *
+ * Calls `claude -p` with model haiku for speed (target <10s round-trip).
+ * Returns empty string on failure — the caller should fall back to writing
+ * the row without a description.
+ */
+export async function augmentTodoDescription(
+  title: string,
+  projectArista: string,
+): Promise<string> {
+  const claudePath = path.join(os.homedir(), ".local", "bin", "claude");
+  if (!fs.existsSync(claudePath)) {
+    return "";
+  }
+
+  const prompt = `Sos un asistente que escribe descripciones cortas y concretas para pendientes/tareas en un tracker personal.
+
+CONTEXTO:
+- Proyecto / arista: ${projectArista || "general"}
+- Título del pendiente: "${title}"
+
+TU TAREA: escribir UNA descripción para ese pendiente. Reglas:
+- 1-3 oraciones máximo. Concreta y accionable.
+- Detalle qué exactamente hay que hacer y bajo qué restricciones, si las podés inferir del título y proyecto.
+- Si el título es genérico, expandilo con qué se busca lograr concretamente. Si ya es específico, agregá contexto/criterios sin redundar.
+- Sin markdown, sin bullets, sin meta-comentarios. Solo el texto plano de la descripción.
+- Español rioplatense, mismo registro que el título.
+
+Devolvé SOLO el texto de la descripción. Nada más.`;
+
+  // Use child_process.spawn directly to capture stdout while keeping things
+  // simple. 25s timeout — Haiku usually returns in 3-8s.
+  return new Promise((resolve) => {
+    const child = spawn(
+      claudePath,
+      [
+        "-p",
+        prompt,
+        "--allowedTools",
+        "",
+        "--dangerously-skip-permissions",
+        "--model",
+        "haiku",
+      ],
+      { stdio: ["ignore", "pipe", "pipe"] },
+    );
+
+    let stdout = "";
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      resolve("");
+    }, 25_000);
+
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      if (code !== 0) {
+        resolve("");
+        return;
+      }
+      // Claude sometimes wraps in quotes or adds trailing newlines
+      const cleaned = stdout
+        .trim()
+        .replace(/^["']|["']$/g, "")
+        .trim();
+      resolve(cleaned);
+    });
+
+    child.on("error", () => {
+      clearTimeout(timer);
+      resolve("");
+    });
+  });
+}
+
+/**
  * Check if a processor run is currently in progress.
  */
 export function isProcessorRunning(): boolean {

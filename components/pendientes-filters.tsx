@@ -962,10 +962,24 @@ function TodoRow({
             color: done ? "var(--ink-3)" : "var(--ink)",
             lineHeight: 1.4,
             textDecoration: done ? "line-through" : "none",
+            fontWeight: todo.description ? 500 : 400,
           }}
         >
-          {todo.desc}
+          {todo.title || todo.desc}
         </div>
+        {todo.description && (
+          <div
+            style={{
+              fontSize: 12,
+              color: "var(--ink-2)",
+              lineHeight: 1.45,
+              marginTop: 3,
+              textDecoration: done ? "line-through" : "none",
+            }}
+          >
+            {todo.description}
+          </div>
+        )}
         <div
           style={{
             display: "flex",

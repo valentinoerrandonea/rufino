@@ -11,7 +11,7 @@ import {
   updateTodoInFile,
   updateTodoProjectInFile,
 } from "@/lib/todos";
-import { triggerProcessor, processFile, planImport } from "@/lib/processor";
+import { triggerProcessor, processFile, planImport, augmentTodoDescription } from "@/lib/processor";
 import { appendLogEntry } from "@/lib/log";
 import { ignoreIssue } from "@/lib/lint";
 import {
@@ -100,20 +100,41 @@ export async function createNote(formData: FormData): Promise<void> {
 }
 
 export async function createTodo(formData: FormData): Promise<void> {
-  const desc = String(formData.get("desc") || "").trim();
+  // Read both new schema (title+description) and legacy (desc) so existing
+  // callers don't break during the migration window.
+  const title = String(
+    formData.get("title") || formData.get("desc") || "",
+  ).trim();
+  let description = String(formData.get("description") || "").trim();
   const projectArista = String(formData.get("projectArista") || "general").trim();
   const peopleStr = String(formData.get("people") || "").trim();
   const deadline = String(formData.get("deadline") || "").trim() || null;
   const priority = String(formData.get("priority") || "media") as "alta" | "media" | "baja";
 
-  if (!desc) return;
+  if (!title) return;
 
   const people = peopleStr
     .split(/[\s,]+/)
     .map((p) => p.replace(/^@/, ""))
     .filter(Boolean);
 
-  await appendTodo({ desc, projectArista, people, deadline, priority });
+  // If the user didn't write a description, ask Claude to fill it from the
+  // title + project context. Synchronous (~3-10s) — by the time the redirect
+  // fires the row already has both fields. Falls back to empty body if
+  // Claude isn't installed or times out.
+  if (!description) {
+    description = await augmentTodoDescription(title, projectArista);
+  }
+
+  await appendTodo({
+    desc: title, // legacy field — readers fall back to desc when title is missing
+    title,
+    description,
+    projectArista,
+    people,
+    deadline,
+    priority,
+  });
   revalidatePath("/");
   revalidatePath("/pendientes");
   redirect("/pendientes");
