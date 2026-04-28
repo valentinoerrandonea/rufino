@@ -122,7 +122,18 @@ export async function readProcessedNotes(): Promise<ProcessedNote[]> {
     const raw = await readSafe(file);
     if (!raw) continue;
     const { data, content } = matter(raw);
-    if (data.status !== "processed") continue;
+    // Include queued/processing in the list so the "procesando" badge is
+    // visible while the processor is running (e.g. right after Val edits
+    // a title — the file flips to queued and the processor takes a few
+    // minutes to flip it back to processed). Without this, edited notes
+    // disappear from /notes until processing finishes.
+    if (
+      data.status !== "processed" &&
+      data.status !== "queued" &&
+      data.status !== "processing"
+    ) {
+      continue;
+    }
 
     const rel = path.relative(RUFINO_PATH, file);
     const parts = rel.split(path.sep);
