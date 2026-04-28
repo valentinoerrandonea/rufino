@@ -41,7 +41,7 @@ export function ImportSubmit({ recents }: { recents: IngestPlan[] }) {
   };
 
   const handleSubmit = async (
-    kind: "file" | "url" | "text",
+    kind: "file" | "url" | "text" | "pdf",
     payload: { filename?: string; body?: string; url?: string },
     label: string,
   ) => {
@@ -61,20 +61,47 @@ export function ImportSubmit({ recents }: { recents: IngestPlan[] }) {
     });
   };
 
+  /** Read a File as base64 (without the data: prefix). Used for PDFs which
+   * we can't text-decode in the browser — the server uses pdf-parse. */
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        const comma = result.indexOf(",");
+        resolve(comma >= 0 ? result.slice(comma + 1) : result);
+      };
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+
+  const handleFile = async (file: File) => {
+    const ext = (file.name.split(".").pop() ?? "").toLowerCase();
+    if (ext === "pdf") {
+      // 25MB limit — pdf-parse can choke on very large PDFs and the
+      // server action body has practical size limits anyway.
+      if (file.size > 25 * 1024 * 1024) {
+        setError("El PDF es demasiado grande (máximo 25 MB).");
+        return;
+      }
+      const b64 = await fileToBase64(file);
+      handleSubmit("pdf", { filename: file.name, body: b64 }, file.name);
+      return;
+    }
+    if (["md", "txt", "markdown"].includes(ext)) {
+      const text = await file.text();
+      handleSubmit("file", { filename: file.name, body: text }, file.name);
+      return;
+    }
+    setError(`Formato .${ext} no soportado. Usá .pdf, .md, .txt o pegá el texto.`);
+  };
+
   const onDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setDragover(false);
     const file = e.dataTransfer.files[0];
     if (!file) return;
-    const ext = (file.name.split(".").pop() ?? "").toLowerCase();
-    if (!["md", "txt", "markdown"].includes(ext)) {
-      setError(
-        `Sólo .md/.txt soportados en v0.2. PDF y otros formatos llegan en un release próximo.`,
-      );
-      return;
-    }
-    const text = await file.text();
-    handleSubmit("file", { filename: file.name, body: text }, file.name);
+    await handleFile(file);
   };
 
   return (
@@ -96,7 +123,7 @@ export function ImportSubmit({ recents }: { recents: IngestPlan[] }) {
             lineHeight: 1.55,
           }}
         >
-          Subí un .md/.txt, una URL o pegá un texto. Rufino lo lee, propone qué notas crear,
+          Subí un .pdf, .md, .txt, una URL o pegá un texto. Rufino lo lee, propone qué notas crear,
           y vos confirmás antes de aplicar.
         </p>
       </header>
@@ -148,10 +175,10 @@ export function ImportSubmit({ recents }: { recents: IngestPlan[] }) {
             Arrastrá un archivo acá
           </div>
           <div style={{ fontSize: 12.5, color: "var(--ink-3)", marginBottom: 18 }}>
-            .md / .txt · hasta 5 MB
+            .pdf (≤25 MB) · .md / .txt (≤5 MB)
           </div>
           <div style={{ display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
-            <FileButton onPicked={(name, body) => handleSubmit("file", { filename: name, body }, name)} />
+            <FileButton onPicked={handleFile} />
             <button className="btn" onClick={() => setModal("url")}>
               Pegar URL
             </button>
@@ -246,19 +273,19 @@ export function ImportSubmit({ recents }: { recents: IngestPlan[] }) {
   );
 }
 
-function FileButton({ onPicked }: { onPicked: (name: string, body: string) => void }) {
+function FileButton({ onPicked }: { onPicked: (file: File) => void | Promise<void> }) {
   return (
     <label className="btn" style={{ cursor: "pointer", display: "inline-flex" }}>
       Elegir archivo
       <input
         type="file"
-        accept=".md,.txt,.markdown"
+        accept=".pdf,.md,.txt,.markdown,application/pdf"
         style={{ display: "none" }}
         onChange={async (e) => {
           const f = e.target.files?.[0];
           if (!f) return;
-          const text = await f.text();
-          onPicked(f.name, text);
+          await onPicked(f);
+          e.target.value = ""; // allow re-uploading the same file
         }}
       />
     </label>

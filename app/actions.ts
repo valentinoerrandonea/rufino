@@ -370,6 +370,26 @@ export async function submitImport(payload: {
       filename = (payload.url.split("/").pop() || "url").replace(/\W+/g, "-").slice(0, 40) + ".txt";
     }
 
+    if (payload.kind === "pdf") {
+      // payload.body is base64-encoded PDF bytes from the client.
+      if (!payload.body) return { ok: false, error: "PDF vacío" };
+      try {
+        const buf = Buffer.from(payload.body, "base64");
+        const { PDFParse } = await import("pdf-parse");
+        const parser = new PDFParse({ data: buf });
+        const result = await parser.getText();
+        await parser.destroy();
+        body = (result.text ?? "").trim();
+        if (!body) return { ok: false, error: "PDF sin texto extraíble (¿escaneado?)" };
+        filename = payload.filename ?? "documento.pdf";
+      } catch (e) {
+        return {
+          ok: false,
+          error: `No pude leer el PDF: ${e instanceof Error ? e.message : "error desconocido"}`,
+        };
+      }
+    }
+
     if (!body.trim()) return { ok: false, error: "documento vacío" };
 
     const id = "imp-" + Date.now().toString(36);
