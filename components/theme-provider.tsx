@@ -13,13 +13,17 @@ type ThemeCtx = {
 const Ctx = createContext<ThemeCtx | null>(null);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("light");
+  // Lazy init reads localStorage once on mount (client only — Provider is
+  // wrapped in "use client"). No setState-in-effect, just a sync DOM
+  // side-effect to apply the data-theme attribute.
+  const [theme, setThemeState] = useState<Theme>(() => {
+    if (typeof window === "undefined") return "light";
+    return (localStorage.getItem("rufino-theme") as Theme | null) || "light";
+  });
 
   useEffect(() => {
-    const stored = (localStorage.getItem("rufino-theme") as Theme | null) || "light";
-    setThemeState(stored);
-    document.documentElement.setAttribute("data-theme", stored);
-  }, []);
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
 
   const setTheme = (t: Theme) => {
     setThemeState(t);

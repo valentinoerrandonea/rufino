@@ -166,8 +166,13 @@ export async function readGraph(): Promise<VaultGraph> {
   for (const e of proyectoEntries) {
     if (!e.isDirectory() || e.name.startsWith("_")) continue;
     const projectId = e.name;
-    const overviewPath = path.join(proyectosDir, projectId, "overview.md");
-    const overviewRaw = await readSafe(overviewPath);
+    // Try new convention first (<id>Overview.md), fall back to legacy
+    let overviewPath = path.join(proyectosDir, projectId, `${projectId}Overview.md`);
+    let overviewRaw = await readSafe(overviewPath);
+    if (overviewRaw == null) {
+      overviewPath = path.join(proyectosDir, projectId, "overview.md");
+      overviewRaw = await readSafe(overviewPath);
+    }
     if (overviewRaw) {
       const { data, content } = matter(overviewRaw);
       const label = fileLabel(content, projectId).replace(

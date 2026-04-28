@@ -322,6 +322,10 @@ export function GraphCanvas({
   const [activeKinds, setActiveKinds] = useState<Set<string>>(new Set(ENTITY_KINDS));
   const [transform, setTransform] = useState({ k: 1, x: 0, y: 0 });
   const [search, setSearch] = useState("");
+  // Mirror of panRef "is currently panning" state — needed in render so the
+  // cursor reflects pan state without reading the ref during render (which
+  // is impure per the new React lint).
+  const [isPanning, setIsPanning] = useState(false);
   const svgRef = useRef<SVGSVGElement>(null);
   const dragNodeRef = useRef<{ id: string; dx: number; dy: number; moved: boolean } | null>(
     null,
@@ -397,6 +401,7 @@ export function GraphCanvas({
   const onMouseDownBg = (e: React.MouseEvent) => {
     if (e.target !== e.currentTarget && (e.target as Element).tagName !== "rect") return;
     panRef.current = { sx: e.clientX, sy: e.clientY, ox: transform.x, oy: transform.y };
+    setIsPanning(true);
     setSelected(null);
   };
 
@@ -431,6 +436,7 @@ export function GraphCanvas({
       reheat();
     }
     panRef.current = null;
+    setIsPanning(false);
   };
 
   const resetView = () => setTransform({ k: 1, x: 0, y: 0 });
@@ -614,7 +620,7 @@ export function GraphCanvas({
               width: "100%",
               height: "100%",
               display: "block",
-              cursor: panRef.current ? "grabbing" : "grab",
+              cursor: isPanning ? "grabbing" : "grab",
               userSelect: "none",
             }}
             onWheel={onWheel}
