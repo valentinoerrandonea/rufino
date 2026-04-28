@@ -4,7 +4,9 @@ Registro de cambios del Rufino Dashboard. Cada versión cuelga del tag `vX.Y.Z` 
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Sigue [SemVer](https://semver.org/lang/es/).
 
-## [Unreleased] — v0.4.3
+## [Unreleased]
+
+## [v0.4.3] — 2026-04-28
 
 ### Added
 - **Pendientes con title + description**: el campo único `desc` se separa en `title` (claro, corto, conciso) y `description` (opcional, expandible). Si Val solo escribe título, el processor (Haiku, 25s timeout) auto-completa una descripción de 1-3 oraciones en español rioplatense (PR #19).
@@ -76,7 +78,8 @@ Release multi-feature ejecutado vía orquestación multi-agente (5 worktrees par
 - File system as database — sin DB ni API layer separado
 - Status state machine: `queued → processing → processed`
 
-[Unreleased]: https://github.com/valentinoerrandonea/rufino/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/valentinoerrandonea/rufino/compare/v0.4.3...HEAD
+[v0.4.3]: https://github.com/valentinoerrandonea/rufino/releases/tag/v0.4.3
 [v0.4.2]: https://github.com/valentinoerrandonea/rufino/releases/tag/v0.4.2
 [v0.4.1]: https://github.com/valentinoerrandonea/rufino/releases/tag/v0.4.1
 [v0.4.0]: https://github.com/valentinoerrandonea/rufino/releases/tag/v0.4.0
