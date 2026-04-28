@@ -1,7 +1,7 @@
 {
   "name": "rufino",
   "productName": "Rufino",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "description": "Tu segundo cerebro, sin fricción.",
   "private": true,
   "main": "dist-electron/main.js",
